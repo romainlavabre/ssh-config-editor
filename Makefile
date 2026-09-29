@@ -8,16 +8,24 @@ DOCKER := docker run --rm \
 	-e HOME=/tmp -e GOCACHE=/src/.cache/build -e GOMODCACHE=/src/.cache/mod -e CGO_ENABLED=0 \
 	-v $(CURDIR):/src -w /src $(GO_IMAGE)
 
-.PHONY: build dist test vet fmt tidy clean
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+
+.PHONY: build dist release publish test vet fmt tidy clean
 
 build: ## binaire linux/amd64 dans dist/
 	$(DOCKER) go build -trimpath -ldflags '$(LDFLAGS)' -o dist/ssh-config-editor ./cmd/ssh-config-editor
 
-dist: ## binaires pour linux amd64/arm64 et macOS arm64
-	$(DOCKER) sh -c '\
-	  GOOS=linux  GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/ssh-config-editor-linux-amd64  ./cmd/ssh-config-editor && \
-	  GOOS=linux  GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/ssh-config-editor-linux-arm64  ./cmd/ssh-config-editor && \
-	  GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/ssh-config-editor-darwin-arm64 ./cmd/ssh-config-editor'
+dist: ## un binaire par plateforme de PLATFORMS
+	$(DOCKER) sh -c 'set -e; for p in $(PLATFORMS); do \
+	  GOOS=$${p%/*} GOARCH=$${p#*/} go build -trimpath -ldflags "$(LDFLAGS)" \
+	    -o dist/ssh-config-editor-$${p%/*}-$${p#*/} ./cmd/ssh-config-editor; done'
+
+release: dist ## binaires + checksums.txt, prêts à attacher à une release GitHub
+	$(DOCKER) sh -c 'cd dist && sha256sum ssh-config-editor-*-* > checksums.txt'
+
+publish: release ## crée la release GitHub $(VERSION) (le tag doit exister et être poussé)
+	gh release create $(VERSION) dist/ssh-config-editor-*-* dist/checksums.txt install.sh \
+	  --title "ssh-config-editor $(VERSION)" --generate-notes
 
 test:
 	$(DOCKER) go test $(TESTFLAGS) ./...

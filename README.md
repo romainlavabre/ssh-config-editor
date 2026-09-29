@@ -1,87 +1,94 @@
 # ssh-config-editor
 
-Éditeur terminal de `~/.ssh/config`, partagé à travers plusieurs dépôts git.
-Chaque modification est commitée, fusionnée avec les modifications des collègues, puis poussée, sans rien avoir à faire.
+A terminal editor for `~/.ssh/config`, shared across several git repositories.
+Every change is committed, merged with your teammates' changes and pushed, with nothing for you to do.
 
 ## Installation
 
-Un seul binaire statique, sans dépendance (Go n'est pas nécessaire) :
-
 ```sh
-cp ssh-config-editor-linux-amd64 ~/.local/bin/ssh-config-editor
+curl -fsSL https://raw.githubusercontent.com/romainlavabre/ssh-config-editor/master/install.sh | sh
 ```
 
-Le poste a seulement besoin de `git` et `ssh`, et d'un accès aux dépôts, par clé ssh ou par identifiants git déjà configurés.
+The script installs `ssh-config-editor` into `/usr/local/bin`, asking for sudo only when needed. It downloads the binary from the latest release for Linux or macOS (amd64/arm64) and verifies its SHA-256 checksum. Go is not required.
 
-## Démarrage
+- Specific version: `curl … | SSH_CONFIG_EDITOR_VERSION=v1.0.0 sh`
+- Without sudo: `curl … | SSH_CONFIG_EDITOR_BIN_DIR=$HOME/.local/bin sh`
+- Uninstall: `curl … | sh -s -- --uninstall` (your data and `~/.ssh/config` are kept)
+- Private repository: the script goes through `gh` when it is authenticated (`gh auth login`)
+
+To update, run the same command again.
+
+The machine only needs `git`, `ssh`, and access to the repositories, through an ssh key or git credentials that are already set up.
+
+## Getting started
 
 ```sh
-ssh-config-editor            # interface
+ssh-config-editor            # interactive UI
 ```
 
-1. `R` puis `a` : ajouter un dépôt, par exemple `git@github.com:equipe/ssh-config.git`. Un dépôt vide convient.
-2. `I` : ranger les Host existants de `~/.ssh/config` dans les dépôts. Ils sont regroupés par préfixe (`fairfair-live-*`, `my-pilot-*`…), et `~/.ssh/config` est sauvegardé avant d'être réécrit.
-3. `n` / `e` : créer ou éditer un Host. `ctrl+s` enregistre et pousse.
+1. `R` then `a`: add a repository, for example `git@github.com:team/ssh-config.git`. An empty repository is fine.
+2. `I`: move the Hosts already in `~/.ssh/config` into the repositories. They are grouped by prefix (`fairfair-live-*`, `my-pilot-*`…), and `~/.ssh/config` is backed up before being rewritten.
+3. `n` / `e`: create or edit a Host. `ctrl+s` saves and pushes.
 
-## Fonctionnement
+## How it works
 
-`~/.ssh/config` commence par un bloc géré par l'outil :
+`~/.ssh/config` starts with a block managed by the tool:
 
 ```
 # >>> ssh-config-editor (généré, ne pas éditer) >>>
 Include ~/.config/ssh-config-editor/local.conf
-Include ~/.local/share/ssh-config-editor/repos/equipe/*.conf
-Include ~/.local/share/ssh-config-editor/repos/perso/*.conf
+Include ~/.local/share/ssh-config-editor/repos/team/*.conf
+Include ~/.local/share/ssh-config-editor/repos/personal/*.conf
 # <<< ssh-config-editor <<<
 ```
 
-- **C'est ssh qui fusionne**, via `Include`. Si l'outil disparaît, la config continue de marcher.
-- **En ssh, la première valeur gagne.** `local.conf` passe en premier : c'est là que vont les surcharges personnelles (votre `User`, votre `IdentityFile`), jamais partagées. Viennent ensuite les dépôts, dans l'ordre de priorité réglé avec `K`/`J` dans l'écran des dépôts.
-- Tout ce qui est en dehors du bloc reste à vous, et l'outil ne le réécrit que si vous éditez un Host qui s'y trouve.
-- Un même Host défini à deux endroits est signalé par `⚠ masqué` sur la définition qui ne s'applique pas.
-- Avant chaque écriture, `ssh -G` relit la config : une option inconnue est refusée avant d'être poussée.
+- **ssh itself does the merging**, through `Include`. If the tool goes away, your config keeps working.
+- **In ssh, the first value wins.** `local.conf` comes first: that is where personal overrides go (your `User`, your `IdentityFile`), never shared. The repositories follow, in the priority order set with `K`/`J` on the repositories screen.
+- Everything outside the block stays yours; the tool only rewrites it when you edit a Host that lives there.
+- A Host defined in two places is flagged `⚠ masqué` on the definition that does not apply.
+- Before every write, `ssh -G` re-reads the config: an unknown option is rejected before it gets pushed.
 
-### Synchronisation
+### Synchronization
 
-À chaque enregistrement, dans le dépôt concerné : `commit` → `fetch` → fusion → `push`. Les autres dépôts sont tirés au lancement et avec `r`.
+On every save, in the repository concerned: `commit` → `fetch` → merge → `push`. The other repositories are pulled at startup and with `r`.
 
-La fusion se fait **Host par Host**, pas ligne par ligne. Deux collègues qui modifient deux Host voisins n'ont aucun conflit, là où git en verrait un. Seul un **même Host modifié des deux côtés** ouvre l'écran de conflit : `m` garde votre version, `t` la leur, `e` permet de rédiger la version finale. Rien n'est poussé tant que ce n'est pas tranché.
+Merging happens **Host by Host**, not line by line. Two teammates editing two neighbouring Hosts get no conflict, where git would report one. Only **the same Host changed on both sides** opens the conflict screen: `m` keeps your version, `t` keeps theirs, `e` lets you write the final version. Nothing is pushed until it is resolved.
 
-Si le réseau est coupé, le commit reste en local (`↑1` dans la barre d'état) et part à la prochaine synchronisation.
+If the network is down, the commit stays local (`↑1` in the status bar) and goes out on the next sync.
 
-## Touches
+## Keys
 
-| Touche | Action |
+| Key | Action |
 |---|---|
-| `enter` | se connecter au Host |
-| `/` | filtrer (nom, IP, user) |
-| `n` `e` `c` `x` | nouveau, éditer, dupliquer, supprimer |
-| `m` | déplacer vers un autre dépôt, `local` ou `~/.ssh/config` |
-| `r` | synchroniser tous les dépôts |
-| `R` | gérer les dépôts (ajout, retrait, priorité) |
-| `I` | importer `~/.ssh/config` |
-| `C` | reprendre un conflit en attente |
-| `?` | aide |
+| `enter` | connect to the Host |
+| `/` | filter (name, IP, user) |
+| `n` `e` `c` `x` | new, edit, duplicate, delete |
+| `m` | move to another repository, `local` or `~/.ssh/config` |
+| `r` | sync all repositories |
+| `R` | manage repositories (add, remove, priority) |
+| `I` | import `~/.ssh/config` |
+| `C` | resume a pending conflict |
+| `?` | help |
 
-Dans le formulaire : `tab`/`↑↓` pour changer de champ, `→` pour accepter la suggestion (clés de `~/.ssh`, Host connus pour ProxyJump), `←/→` sur Destination pour changer de dépôt.
+In the form: `tab`/`↑↓` to switch fields, `→` to accept the suggestion (keys from `~/.ssh`, known Hosts for ProxyJump), `←/→` on Destination to pick the repository.
 
-## Ligne de commande
+## Command line
 
 ```sh
-ssh-config-editor sync                     # tous les dépôts, code 1 si conflit
+ssh-config-editor sync                     # all repositories, exit code 1 on conflict
 ssh-config-editor ls                       # Host, HostName, User, source
-ssh-config-editor repo add NOM URL [BRANCHE]
-ssh-config-editor repo rm NOM [--force]
+ssh-config-editor repo add NAME URL [BRANCH]
+ssh-config-editor repo rm NAME [--force]
 ssh-config-editor import
 ```
 
-Pour une synchronisation en tâche de fond, un timer systemd utilisateur :
+For background sync, a systemd user timer:
 
 ```ini
 # ~/.config/systemd/user/ssh-config-editor.service
 [Service]
 Type=oneshot
-ExecStart=%h/.local/bin/ssh-config-editor sync
+ExecStart=/usr/local/bin/ssh-config-editor sync
 
 # ~/.config/systemd/user/ssh-config-editor.timer
 [Timer]
@@ -90,30 +97,38 @@ OnCalendar=*:0/15
 WantedBy=timers.target
 ```
 
-## Règles de partage
+## Sharing rules
 
-- **Jamais de clé privée dans un dépôt.** Seulement `HostName`, `Port`, `ProxyJump` et les options communes.
-- Un `IdentityFile` partagé suppose que tout le monde nomme sa clé pareil. Sinon, chacun met le sien dans `local.conf` :
+- **Never put a private key in a repository.** Only `HostName`, `Port`, `ProxyJump` and shared options.
+- A shared `IdentityFile` assumes everyone names their key the same way. Otherwise, each person puts their own in `local.conf`:
   ```
   Host fairfair-*
-    IdentityFile ~/.ssh/ma-cle
+    IdentityFile ~/.ssh/my-key
   ```
 
-## Emplacements
+## Locations
 
-| Quoi | Où |
+| What | Where |
 |---|---|
-| Liste des dépôts | `~/.config/ssh-config-editor/config.toml` |
-| Surcharges perso | `~/.config/ssh-config-editor/local.conf` |
-| Clones | `~/.local/share/ssh-config-editor/repos/<nom>/` |
-| Sauvegardes d'import | `~/.ssh/config.ssh-config-editor-bak-<date>` |
+| Repository list | `~/.config/ssh-config-editor/config.toml` |
+| Personal overrides | `~/.config/ssh-config-editor/local.conf` |
+| Clones | `~/.local/share/ssh-config-editor/repos/<name>/` |
+| Import backups | `~/.ssh/config.ssh-config-editor-bak-<date>` |
 
-## Développement
+## Development
 
-Go n'est pas requis sur le poste, tout passe par l'image Docker `golang:1.25` :
+Go is not required on the machine, everything goes through the `golang:1.25` Docker image:
 
 ```sh
-make test    # tests unitaires, git (deux clones d'un même distant) et TUI de bout en bout
+make test    # unit tests, git (two clones of the same remote) and end-to-end TUI
 make build   # dist/ssh-config-editor
-make dist    # linux amd64/arm64, macOS arm64
+make dist    # linux and macOS, amd64/arm64
+make release # dist + checksums.txt
+```
+
+Publishing a version (this is what `install.sh` downloads):
+
+```sh
+git tag v1.0.0 && git push origin master v1.0.0
+make publish VERSION=v1.0.0
 ```
