@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// team crée un dépôt distant vide et deux clones qui jouent deux collègues.
+// team creates an empty remote and two clones playing two teammates.
 func team(t *testing.T) (Repo, Repo) {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -69,7 +69,7 @@ func TestNeighbourHostsMergeAutomatically(t *testing.T) {
 		t.Fatalf("bob n'a pas reçu le fichier : %q", got)
 	}
 
-	// Deux Host voisins : conflit texte pour git, aucun conflit par Host.
+	// Two neighbouring Hosts: a textual conflict for git, no per-Host conflict.
 	write(t, alice, "team.conf", strings.Replace(hosts, "10.0.0.1", "10.0.0.11", 1))
 	write(t, bob, "team.conf", strings.Replace(hosts, "10.0.0.2", "10.0.0.22", 1))
 	mustSync(t, alice, "alice")
@@ -104,7 +104,7 @@ func TestSameHostConflictBlocksPushUntilResolved(t *testing.T) {
 		t.Fatalf("attendu un conflit sur b, obtenu %+v", res.Conflicts)
 	}
 
-	// Un Sync pendant le conflit ne pousse rien.
+	// A Sync during the conflict pushes nothing.
 	if res := mustSync(t, bob, ""); len(res.Conflicts) != 1 {
 		t.Fatal("le conflit doit rester en attente")
 	}

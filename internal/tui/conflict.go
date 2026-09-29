@@ -130,7 +130,7 @@ func (m *Model) updateConflict(k tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// next saute au prochain Host non tranché.
+// next jumps to the next unresolved Host.
 func (v *conflictView) next() {
 	v.err = ""
 	for i := 1; i <= len(v.items); i++ {
@@ -227,7 +227,7 @@ func (m *Model) viewConflict() string {
 	return box(lines, m.w, m.h-1) + "\n" + m.footer(help)
 }
 
-// sideLines colore les lignes absentes de l'autre version.
+// sideLines highlights the lines missing from the other version.
 func sideLines(s, other sshconfig.Side) []string {
 	if !s.Present {
 		return []string{sMuted.Render("(Host supprimé de ce côté)")}

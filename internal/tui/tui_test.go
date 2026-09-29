@@ -43,8 +43,8 @@ Host minecraft-server
   HostName 10.60.0.1
 `
 
-// driver pilote le modèle comme le ferait bubbletea : touche → Update →
-// exécution des commandes → messages renvoyés au modèle.
+// driver drives the model the way bubbletea would: key → Update →
+// run the commands → feed the resulting messages back to the model.
 type driver struct {
 	t *testing.T
 	m *Model
@@ -78,8 +78,8 @@ func (d *driver) send(msg tea.Msg) {
 	d.run(cmd)
 }
 
-// run exécute une commande et renvoie au modèle les messages de l'application.
-// Le clignotement du curseur et l'expiration des notifications sont ignorés.
+// run executes a command and feeds the application messages back to the model.
+// Cursor blinks and notification expiries are ignored.
 func (d *driver) run(cmd tea.Cmd) {
 	if cmd == nil {
 		return
@@ -186,7 +186,7 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 		t.Fatalf("%v %s", err, out)
 	}
 
-	// Alice ajoute le dépôt et y importe sa config existante.
+	// Alice adds the repository and imports her existing config into it.
 	alice := newDriver(t, filepath.Join(root, "alice"), aliceConfig)
 	t.Logf("accueil d'Alice :\n%s", alice.m.View())
 	alice.addRepo(remote)
@@ -215,14 +215,14 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 		t.Error("le détail doit montrer la définition et la config effective")
 	}
 
-	// Bob ajoute le même dépôt : il reçoit les Host d'Alice.
+	// Bob adds the same repository: he receives Alice's Hosts.
 	bob := newDriver(t, filepath.Join(root, "bob"), "")
 	bob.addRepo(remote)
 	if len(bob.m.st.HostsOf(bob.m.st.Source("team"))) != 3 {
 		t.Fatalf("Bob doit recevoir 3 Host, il en a %d", len(bob.m.st.HostsOf(bob.m.st.Source("team"))))
 	}
 
-	// Host voisins : fusion automatique.
+	// Neighbouring Hosts: automatic merge.
 	alice.setHostName("fairfair-live-worker-1", "10.9.9.1")
 	bob.setHostName("fairfair-live-worker-2", "10.8.8.2")
 	if bob.m.screen != scrMain || len(bob.m.repo("team").conflicts) != 0 {
@@ -234,7 +234,7 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 		t.Fatalf("Alice doit avoir les deux modifications :\n%s", got)
 	}
 
-	// Même Host des deux côtés : écran de conflit chez Bob.
+	// Same Host on both sides: conflict screen for Bob.
 	alice.setHostName("fairfair-live-worker-3", "10.7.7.1")
 	bob.setHostName("fairfair-live-worker-3", "10.7.7.2")
 	if bob.m.screen != scrConflict {
@@ -261,7 +261,7 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 		t.Errorf("Alice et Bob divergent :\n--- alice\n%s\n--- bob\n%s", got, want)
 	}
 
-	// Le formulaire, pour relecture.
+	// The form, for review.
 	alice.m.selectHost(h.Path, h.Name)
 	alice.keys("e")
 	t.Logf("formulaire :\n%s", alice.m.View())

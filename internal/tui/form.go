@@ -22,7 +22,7 @@ const (
 	formDuplicate
 )
 
-// Champs du formulaire, dans l'ordre de tabulation.
+// Form fields, in tab order.
 const (
 	fAlias = iota
 	fHostName
@@ -36,7 +36,7 @@ const (
 	fieldCount
 )
 
-// Les directives éditées dans un champ dédié ; le reste va dans « Autres options ».
+// Directives edited in a dedicated field; everything else goes to "Autres options".
 var mainKeys = map[int]string{
 	fHostName: "HostName",
 	fUser:     "User",
@@ -115,8 +115,8 @@ func (m *Model) openForm(mode formMode, h *store.Host, near *store.Source) {
 	f.extra.Placeholder = "ForwardAgent yes\nLocalForward 5432 localhost:5432"
 	f.extra.SetHeight(5)
 
-	// Destination par défaut : la source du Host, sinon le groupe sous le
-	// curseur, sinon le premier dépôt.
+	// Default destination: the Host's source, otherwise the group under the
+	// cursor, otherwise the first repository.
 	dest := near
 	if h != nil {
 		dest = h.Source
@@ -167,8 +167,8 @@ func (m *Model) openForm(mode formMode, h *store.Host, near *store.Source) {
 
 func (f *hostForm) destSource() *store.Source { return f.dests[f.dest] }
 
-// refreshFile propose les fichiers du dépôt choisi et, tant que l'utilisateur
-// n'a pas choisi lui-même, déduit le fichier du préfixe de l'alias.
+// refreshFile suggests the files of the chosen repository and, until the user
+// picks one, derives the file from the alias prefix.
 func (f *hostForm) refreshFile() {
 	src := f.destSource()
 	files := f.st.ConfFiles(src)
@@ -242,7 +242,7 @@ func (f *hostForm) forward(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-// acceptSuggestion complète le champ quand le curseur est en fin de saisie.
+// acceptSuggestion completes the field when the cursor is at the end of the input.
 func acceptSuggestion(ti *textinput.Model) bool {
 	s := ti.CurrentSuggestion()
 	if s == "" || s == ti.Value() || ti.Position() < len([]rune(ti.Value())) {
@@ -280,7 +280,7 @@ func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 	case "enter":
 		if f.focus != fExtra {
 			if f.focus == fIdentity || f.focus == fProxy || f.focus == fFile {
-				// enter valide aussi la suggestion affichée.
+				// enter also accepts the displayed suggestion.
 				if f.focus == fFile {
 					acceptSuggestion(&f.file)
 				} else {

@@ -1,5 +1,5 @@
-// ssh-config-editor : éditeur terminal de ~/.ssh/config, synchronisé sur
-// plusieurs dépôts git.
+// ssh-config-editor: a terminal editor for ~/.ssh/config, synced across
+// several git repositories.
 package main
 
 import (
@@ -58,7 +58,7 @@ func run(args []string) error {
 		return err
 	}
 	if len(st.Config.Repos) > 0 {
-		// Rattrape un ~/.ssh/config réécrit à la main ou par un autre outil.
+		// Recover a ~/.ssh/config rewritten by hand or by another tool.
 		if err := st.EnsureManaged(); err != nil {
 			return err
 		}

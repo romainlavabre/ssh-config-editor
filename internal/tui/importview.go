@@ -12,7 +12,7 @@ import (
 
 type importView struct {
 	groups   []store.ImportGroup
-	dests    []*store.Source // dests[0] == nil : laisser dans ~/.ssh/config
+	dests    []*store.Source // dests[0] == nil: leave in ~/.ssh/config
 	choice   []int
 	cursor   int
 	expanded map[int]bool
@@ -21,7 +21,7 @@ type importView struct {
 
 func (m *Model) openImport() {
 	v := &importView{groups: m.st.ImportCandidates(), expanded: map[int]bool{}}
-	v.dests = append([]*store.Source{nil}, m.st.Sources[:len(m.st.Sources)-1]...) // local + dépôts
+	v.dests = append([]*store.Source{nil}, m.st.Sources[:len(m.st.Sources)-1]...) // local + repositories
 	v.choice = make([]int, len(v.groups))
 	m.imp = v
 	m.screen = scrImport

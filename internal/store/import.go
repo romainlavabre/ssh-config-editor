@@ -12,14 +12,14 @@ import (
 	"github.com/romainlavabre/ssh-config-editor/internal/sshconfig"
 )
 
-// ImportGroup est un lot de Host de ~/.ssh/config qui partagent un préfixe.
+// ImportGroup is a batch of Hosts from ~/.ssh/config sharing a prefix.
 type ImportGroup struct {
 	Key   string
 	Hosts []*Host
 }
 
-// GroupKey regroupe les alias par leurs deux premiers segments, chiffres
-// retirés : fairfair-dev4-node → fairfair-dev, my-pilot-live → my-pilot.
+// GroupKey groups aliases by their first two segments, digits removed:
+// fairfair-dev4-node → fairfair-dev, my-pilot-live → my-pilot.
 func GroupKey(name string) string {
 	parts := strings.Split(name, "-")
 	if len(parts) < 3 {
@@ -32,8 +32,8 @@ func GroupKey(name string) string {
 	return parts[0] + "-" + second
 }
 
-// ImportCandidates regroupe les Host concrets restés dans ~/.ssh/config.
-// Les blocs à joker (Host *) et les Match n'en font pas partie.
+// ImportCandidates groups the concrete Hosts left in ~/.ssh/config.
+// Wildcard blocks (Host *) and Match blocks are not included.
 func (s *Store) ImportCandidates() []ImportGroup {
 	var groups []ImportGroup
 	idx := map[string]int{}
@@ -53,10 +53,10 @@ func (s *Store) ImportCandidates() []ImportGroup {
 	return groups
 }
 
-// Import déplace chaque groupe vers la source choisie (absent ou ~/.ssh/config :
-// le groupe reste en place). Dans un dépôt, un groupe devient <clé>.conf.
-// ~/.ssh/config est sauvegardé avant d'être réécrit. Renvoie le chemin de la
-// sauvegarde et les dépôts à synchroniser.
+// Import moves each group to the chosen source (missing or ~/.ssh/config: the
+// group stays where it is). In a repository, a group becomes <key>.conf.
+// ~/.ssh/config is backed up before being rewritten. Returns the backup path
+// and the repositories to sync.
 func (s *Store) Import(assign map[string]*Source) (string, []*Source, error) {
 	mainF, err := s.fresh(s.Paths.SSHConfig)
 	if err != nil {

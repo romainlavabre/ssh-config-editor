@@ -31,7 +31,7 @@ var (
 	sDialog    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cAccent).Padding(1, 2)
 )
 
-// helpLine rend "touche action · touche action".
+// helpLine renders "key action · key action".
 func helpLine(pairs ...string) string {
 	var parts []string
 	for i := 0; i+1 < len(pairs); i += 2 {
@@ -40,7 +40,7 @@ func helpLine(pairs ...string) string {
 	return strings.Join(parts, sMuted.Render(" · "))
 }
 
-// truncate coupe une ligne (styles compris) à w colonnes.
+// truncate cuts a line (styles included) to w columns.
 func truncate(s string, w int) string {
 	if w <= 0 {
 		return ""
@@ -48,7 +48,7 @@ func truncate(s string, w int) string {
 	return ansi.Truncate(s, w, "…")
 }
 
-// box rend exactement h lignes de w colonnes.
+// box renders exactly h lines of w columns.
 func box(lines []string, w, h int) string {
 	out := make([]string, h)
 	for i := 0; i < h; i++ {
@@ -64,7 +64,7 @@ func box(lines []string, w, h int) string {
 	return strings.Join(out, "\n")
 }
 
-// pane encadre un contenu de w×h colonnes/lignes intérieures.
+// pane frames content of w×h inner columns/lines.
 func pane(title string, lines []string, w, h int, focus bool) string {
 	st := sPane
 	if focus {
@@ -75,7 +75,7 @@ func pane(title string, lines []string, w, h int, focus bool) string {
 	if title == "" {
 		return rendered
 	}
-	// Titre incrusté dans la bordure du haut.
+	// Title embedded in the top border.
 	rows := strings.Split(rendered, "\n")
 	t := " " + title + " "
 	if lipgloss.Width(t) < lipgloss.Width(rows[0])-4 {

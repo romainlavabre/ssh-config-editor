@@ -1,15 +1,15 @@
 #!/bin/sh
-# Installe ssh-config-editor dans /usr/local/bin, sans cloner le dépôt.
+# Installs ssh-config-editor into /usr/local/bin, without cloning the repository.
 #
 #   curl -fsSL https://raw.githubusercontent.com/romainlavabre/ssh-config-editor/master/install.sh | sh
 #
-# Options (variables d'environnement) :
-#   SSH_CONFIG_EDITOR_VERSION   version à installer (défaut : latest), ex. v1.0.0
-#   SSH_CONFIG_EDITOR_BIN_DIR   dossier d'installation (défaut : /usr/local/bin)
-#   SSH_CONFIG_EDITOR_REPO      dépôt GitHub (défaut : romainlavabre/ssh-config-editor)
-#   SSH_CONFIG_EDITOR_BASE_URL  URL où trouver les binaires, à la place de GitHub
+# Options (environment variables):
+#   SSH_CONFIG_EDITOR_VERSION   version to install (default: latest), e.g. 1.0.0
+#   SSH_CONFIG_EDITOR_BIN_DIR   install directory (default: /usr/local/bin)
+#   SSH_CONFIG_EDITOR_REPO      GitHub repository (default: romainlavabre/ssh-config-editor)
+#   SSH_CONFIG_EDITOR_BASE_URL  URL to fetch the binaries from, instead of GitHub
 #
-# Désinstallation : ... | sh -s -- --uninstall
+# Uninstall: ... | sh -s -- --uninstall
 set -eu
 
 REPO="${SSH_CONFIG_EDITOR_REPO:-romainlavabre/ssh-config-editor}"
@@ -32,7 +32,7 @@ die()  { printf '%s✗%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# Lance une commande avec sudo seulement si le dossier n'est pas accessible en écriture.
+# Runs a command with sudo only when the directory is not writable.
 as_root() {
     if [ -w "$BIN_DIR" ] || { [ ! -e "$BIN_DIR" ] && [ -w "$(dirname "$BIN_DIR")" ]; }; then
         "$@"
@@ -68,7 +68,7 @@ detect_platform() {
     ASSET="$NAME-$os-$arch"
 }
 
-# download URL FICHIER
+# download URL FILE
 download() {
     if have curl; then
         curl -fsSL --retry 3 -o "$2" "$1"
@@ -94,7 +94,7 @@ fetch() {
         download "$BASE_URL/$ASSET" "$TMP/$ASSET"
         download "$BASE_URL/checksums.txt" "$TMP/checksums.txt"
     elif have gh && gh auth status >/dev/null 2>&1; then
-        # gh fonctionne aussi quand le dépôt est privé.
+        # gh also works when the repository is private.
         tag=""
         [ "$VERSION" != "latest" ] && tag="$VERSION"
         # shellcheck disable=SC2086

@@ -77,7 +77,7 @@ func TestAddRepoWritesManagedBlockOnTop(t *testing.T) {
 	if !strings.HasSuffix(got, "\n\n"+mainConfig) {
 		t.Errorf("le contenu d'origine doit suivre le bloc, intact :\n%s", got)
 	}
-	// Idempotent : aucune réécriture si rien ne change.
+	// Idempotent: no rewrite when nothing changes.
 	if !s.ManagedUpToDate() {
 		t.Error("le bloc devrait être à jour")
 	}
@@ -152,7 +152,7 @@ func TestSaveHostCreateMoveAndDuplicates(t *testing.T) {
 		t.Error("un doublon dans le même fichier doit être refusé")
 	}
 
-	// Même nom dans local : autorisé, mais signalé comme masquant le dépôt.
+	// Same name in local: allowed, but flagged as shadowing the repository.
 	if _, err := s.SaveHost(nil, Target{Source: s.Source("local")}, "bastion", []sshconfig.Option{{Key: "User", Value: "moi"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestSaveHostCreateMoveAndDuplicates(t *testing.T) {
 		t.Errorf("attendu 1 Host masqué, obtenu %d", shadowed)
 	}
 
-	// Déplacement vers ~/.ssh/config : le fichier du dépôt vidé disparaît.
+	// Move to ~/.ssh/config: the emptied repository file disappears.
 	var h *Host
 	for _, x := range s.Hosts {
 		if x.Name == "bastion" && x.Source == team {

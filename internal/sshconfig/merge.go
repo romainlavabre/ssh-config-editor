@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// Side est l'état d'un bloc dans une version : absent, ou présent avec son texte.
+// Side is the state of a block in one version: absent, or present with its text.
 type Side struct {
 	Present bool
 	Text    string
 }
 
-// Conflict est un bloc modifié différemment des deux côtés.
+// Conflict is a block changed differently on both sides.
 type Conflict struct {
 	Key      string
 	Base     Side
@@ -21,7 +21,7 @@ type Conflict struct {
 	Result   Side
 }
 
-// Name renvoie le nom affichable du bloc en conflit.
+// Name returns the display name of the conflicting block.
 func (c *Conflict) Name() string {
 	if c.Key == "" {
 		return "(préambule)"
@@ -32,13 +32,13 @@ func (c *Conflict) Name() string {
 	return c.Key
 }
 
-// Resolve fixe la version retenue.
+// Resolve sets the chosen version.
 func (c *Conflict) Resolve(s Side) {
 	c.Resolved = true
 	c.Result = s
 }
 
-// Merge est le résultat d'une fusion à 3 voies bloc par bloc.
+// Merge is the result of a block-by-block three-way merge.
 type Merge struct {
 	order     []string
 	texts     map[string]Side
@@ -46,9 +46,9 @@ type Merge struct {
 	Conflicts []*Conflict
 }
 
-// Merge3 fusionne trois versions d'un fichier bloc par bloc : un bloc modifié
-// d'un seul côté prend la version modifiée, un bloc modifié différemment des
-// deux côtés devient un Conflict à trancher.
+// Merge3 merges three versions of a file block by block: a block changed on
+// one side only takes the changed version, a block changed differently on
+// both sides becomes a Conflict to resolve.
 func Merge3(base, ours, theirs string) *Merge {
 	_, bm := index(Parse(base))
 	ok, om := index(Parse(ours))
@@ -88,7 +88,7 @@ func Merge3(base, ours, theirs string) *Merge {
 	return m
 }
 
-// Unresolved compte les conflits non tranchés.
+// Unresolved counts the conflicts not yet resolved.
 func (m *Merge) Unresolved() int {
 	n := 0
 	for _, c := range m.Conflicts {
@@ -99,7 +99,7 @@ func (m *Merge) Unresolved() int {
 	return n
 }
 
-// Render produit le fichier fusionné. Erreur tant qu'un conflit n'est pas tranché.
+// Render produces the merged file. Fails while a conflict is unresolved.
 func (m *Merge) Render() (string, error) {
 	var parts []string
 	for _, k := range m.order {

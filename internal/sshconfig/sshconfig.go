@@ -1,29 +1,29 @@
-// Package sshconfig lit et réécrit un fichier ssh_config sans perte :
-// chaque ligne est conservée telle quelle, seules les lignes modifiées sont réécrites.
+// Package sshconfig reads and rewrites an ssh_config file losslessly:
+// every line is kept as is, only modified lines are rewritten.
 package sshconfig
 
 import "strings"
 
-// Option est une directive "Clé valeur".
+// Option is a "Key value" directive.
 type Option struct {
 	Key   string
 	Value string
 }
 
-// Block est un bloc Host ou Match, ou le préambule (Header vide).
+// Block is a Host or Match block, or the preamble (empty Header).
 type Block struct {
-	Header string   // ligne brute "Host a b" ; vide pour le préambule
-	Lines  []string // lignes brutes qui suivent l'en-tête : options, commentaires, lignes vides
+	Header string   // raw "Host a b" line; empty for the preamble
+	Lines  []string // raw lines after the header: options, comments, blank lines
 }
 
-// File est un fichier ssh_config découpé en préambule + blocs.
+// File is an ssh_config file split into preamble + blocks.
 type File struct {
 	Preamble     *Block
 	Blocks       []*Block
 	finalNewline bool
 }
 
-// Parse découpe un contenu ssh_config. Parse(c).String() == c pour tout c.
+// Parse splits ssh_config content. Parse(c).String() == c for every c.
 func Parse(content string) *File {
 	f := &File{Preamble: &Block{}, finalNewline: true}
 	if content == "" {
@@ -49,7 +49,7 @@ func Parse(content string) *File {
 	return f
 }
 
-// String restitue le fichier.
+// String renders the file back.
 func (f *File) String() string {
 	var all []string
 	all = append(all, f.Preamble.Lines...)
@@ -67,7 +67,7 @@ func (f *File) String() string {
 	return s
 }
 
-// Hosts renvoie les blocs Host, dans l'ordre du fichier.
+// Hosts returns the Host blocks, in file order.
 func (f *File) Hosts() []*Block {
 	var out []*Block
 	for _, b := range f.Blocks {
@@ -78,7 +78,7 @@ func (f *File) Hosts() []*Block {
 	return out
 }
 
-// Find renvoie le premier bloc Host portant ce nom, ou nil.
+// Find returns the first Host block with this name, or nil.
 func (f *File) Find(name string) *Block {
 	name = normalize(name)
 	for _, b := range f.Blocks {
@@ -89,7 +89,7 @@ func (f *File) Find(name string) *Block {
 	return nil
 }
 
-// Remove retire un bloc du fichier.
+// Remove deletes a block from the file.
 func (f *File) Remove(target *Block) bool {
 	for i, b := range f.Blocks {
 		if b == target {
@@ -100,7 +100,7 @@ func (f *File) Remove(target *Block) bool {
 	return false
 }
 
-// Append ajoute un bloc en fin de fichier, séparé du précédent par une ligne vide.
+// Append adds a block at the end of the file, separated from the previous one by a blank line.
 func (f *File) Append(b *Block) {
 	prev := f.Preamble
 	if len(f.Blocks) > 0 {
@@ -115,19 +115,19 @@ func (f *File) Append(b *Block) {
 	f.finalNewline = true
 }
 
-// Kind vaut "host", "match", ou "" pour le préambule.
+// Kind is "host", "match", or "" for the preamble.
 func (b *Block) Kind() string {
 	k, _ := SplitLine(b.Header)
 	return strings.ToLower(k)
 }
 
-// Name renvoie les motifs de l'en-tête, espaces normalisés.
+// Name returns the header patterns, with normalized spaces.
 func (b *Block) Name() string {
 	_, v := SplitLine(b.Header)
 	return normalize(v)
 }
 
-// IsConcrete indique un bloc Host sans joker : un alias sur lequel on peut se connecter.
+// IsConcrete reports a Host block without wildcards: an alias you can connect to.
 func (b *Block) IsConcrete() bool {
 	if b.Kind() != "host" {
 		return false
@@ -135,12 +135,12 @@ func (b *Block) IsConcrete() bool {
 	return !strings.ContainsAny(b.Name(), "*?!")
 }
 
-// SetName renomme un bloc Host.
+// SetName renames a Host block.
 func (b *Block) SetName(name string) {
 	b.Header = "Host " + normalize(name)
 }
 
-// Options renvoie les directives du bloc, dans l'ordre.
+// Options returns the block's directives, in order.
 func (b *Block) Options() []Option {
 	var out []Option
 	for _, l := range b.Lines {
@@ -151,7 +151,7 @@ func (b *Block) Options() []Option {
 	return out
 }
 
-// Get renvoie la première valeur de la clé (insensible à la casse), ou "".
+// Get returns the first value of the key (case-insensitive), or "".
 func (b *Block) Get(key string) string {
 	for _, o := range b.Options() {
 		if strings.EqualFold(o.Key, key) {
@@ -161,10 +161,9 @@ func (b *Block) Get(key string) string {
 	return ""
 }
 
-// SetOptions remplace l'ensemble des directives du bloc par opts. Les lignes
-// existantes sont réutilisées clé par clé (dans l'ordre d'apparition), les
-// commentaires restent en place, les nouvelles clés sont ajoutées après la
-// dernière directive.
+// SetOptions replaces all the block's directives with opts. Existing lines
+// are reused key by key (in order of appearance), comments stay in place,
+// and new keys are added after the last directive.
 func (b *Block) SetOptions(opts []Option) {
 	var wanted []Option
 	for _, o := range opts {
@@ -220,7 +219,7 @@ func (b *Block) SetOptions(opts []Option) {
 	b.Lines = res
 }
 
-// Text renvoie le bloc sans les lignes vides finales.
+// Text returns the block without its trailing blank lines.
 func (b *Block) Text() string {
 	var lines []string
 	if b.Header != "" {
@@ -236,7 +235,7 @@ func (b *Block) Text() string {
 	return strings.Join(lines, "\n")
 }
 
-// Clone copie le bloc, sans ses lignes vides finales.
+// Clone copies the block, without its trailing blank lines.
 func (b *Block) Clone() *Block {
 	c := &Block{Header: b.Header, Lines: append([]string(nil), b.Lines...)}
 	for len(c.Lines) > 0 && strings.TrimSpace(c.Lines[len(c.Lines)-1]) == "" {
@@ -245,7 +244,7 @@ func (b *Block) Clone() *Block {
 	return c
 }
 
-// NewHostBlock construit un bloc Host.
+// NewHostBlock builds a Host block.
 func NewHostBlock(name string, opts []Option) *Block {
 	b := &Block{}
 	b.SetName(name)
@@ -262,8 +261,8 @@ func (b *Block) indent() string {
 	return "  "
 }
 
-// SplitLine découpe une ligne en clé et valeur ("Key value" ou "Key=value").
-// Renvoie "", "" pour une ligne vide ou un commentaire.
+// SplitLine splits a line into key and value ("Key value" or "Key=value").
+// Returns "", "" for a blank line or a comment.
 func SplitLine(l string) (string, string) {
 	t := strings.TrimSpace(l)
 	if t == "" || strings.HasPrefix(t, "#") {

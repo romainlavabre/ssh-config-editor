@@ -13,8 +13,8 @@ const (
 	endMarker   = "# <<< ssh-config-editor <<<"
 )
 
-// managedBlock construit le bloc d'Include placé en tête de ~/.ssh/config.
-// Les surcharges locales passent en premier : en ssh, la première valeur gagne.
+// managedBlock builds the Include block placed at the top of ~/.ssh/config.
+// Local overrides come first: in ssh, the first value wins.
 func managedBlock(p Paths, repos []Repo) string {
 	lines := []string{beginMarker, "Include " + quote(p.LocalConf())}
 	for _, r := range repos {
@@ -31,7 +31,7 @@ func quote(path string) string {
 	return path
 }
 
-// stripManaged retire le bloc géré (et les lignes vides qui le suivent).
+// stripManaged removes the managed block (and the blank lines after it).
 func stripManaged(content string) (string, bool) {
 	lines := strings.Split(content, "\n")
 	start, end := -1, -1
@@ -55,7 +55,7 @@ func stripManaged(content string) (string, bool) {
 	return strings.Join(out, "\n"), true
 }
 
-// composeMain replace le bloc géré en tête du contenu de ~/.ssh/config.
+// composeMain puts the managed block back at the top of ~/.ssh/config content.
 func composeMain(block, rest string) string {
 	rest = strings.TrimLeft(rest, "\n")
 	if strings.TrimSpace(rest) == "" {
@@ -64,8 +64,8 @@ func composeMain(block, rest string) string {
 	return block + "\n\n" + rest
 }
 
-// Validate fait relire la configuration par ssh lui-même, pour refuser une
-// option inconnue avant de l'écrire et de la pousser.
+// Validate has ssh itself re-read the configuration, to reject an unknown
+// option before writing and pushing it.
 func Validate(content string) error {
 	sshBin, err := exec.LookPath("ssh")
 	if err != nil {
@@ -91,9 +91,9 @@ func Validate(content string) error {
 	return nil
 }
 
-// writeFileAtomic écrit via un fichier temporaire en gardant les droits existants.
+// writeFileAtomic writes through a temporary file, keeping existing permissions.
 func writeFileAtomic(path, content string, defaultMode os.FileMode) error {
-	// Un ~/.ssh/config en lien symbolique (dotfiles) reste un lien.
+	// A symlinked ~/.ssh/config (dotfiles) stays a symlink.
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		path = resolved
 	}

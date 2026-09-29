@@ -1,4 +1,4 @@
-// Package tui est l'interface terminal de ssh-config-editor.
+// Package tui is the terminal interface of ssh-config-editor.
 package tui
 
 import (
@@ -18,7 +18,7 @@ import (
 	"github.com/romainlavabre/ssh-config-editor/internal/store"
 )
 
-// Start choisit l'écran d'ouverture.
+// Start selects the opening screen.
 type Start int
 
 const (
@@ -37,7 +37,7 @@ const (
 	scrHelp
 )
 
-// Run lance l'interface.
+// Run starts the interface.
 func Run(st *store.Store, start Start) error {
 	m := newModel(st)
 	if start == StartImport {
@@ -64,7 +64,7 @@ type effective struct {
 
 type row struct {
 	src  *store.Source
-	host *store.Host // nil : en-tête de groupe
+	host *store.Host // nil: group header
 }
 
 func (r row) key() string {
@@ -83,7 +83,7 @@ const (
 	toastErr
 )
 
-// Model est l'état de l'application.
+// Model is the application state.
 type Model struct {
 	st     *store.Store
 	w, h   int
@@ -112,7 +112,7 @@ type Model struct {
 	quitting bool
 }
 
-// Messages asynchrones.
+// Asynchronous messages.
 type (
 	syncDoneMsg struct {
 		repo   string
@@ -151,7 +151,7 @@ func newModel(st *store.Store) *Model {
 	return m
 }
 
-// Init synchronise tous les dépôts au lancement.
+// Init syncs every repository at startup.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.syncAll(), m.loadEffective())
 }
@@ -165,9 +165,9 @@ func (m *Model) repo(name string) *repoState {
 	return rs
 }
 
-// ---------------------------------------------------------------- mise à jour
+// ------------------------------------------------------------------- update
 
-// Update distribue les messages à l'écran actif.
+// Update dispatches messages to the active screen.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -220,7 +220,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.updateMain(msg)
 	}
-	// Clignotement du curseur et autres messages des champs actifs.
+	// Cursor blink and other messages for the active inputs.
 	return m, m.forwardToInputs(msg)
 }
 
@@ -251,7 +251,7 @@ func (m *Model) resize() {
 	}
 }
 
-// toastDelay est la durée d'affichage d'une notification (doublée pour une erreur).
+// toastDelay is how long a notification stays visible (doubled for an error).
 var toastDelay = 4 * time.Second
 
 func (m *Model) notify(kind toastKind, text string) tea.Cmd {
@@ -265,7 +265,7 @@ func (m *Model) notify(kind toastKind, text string) tea.Cmd {
 	return tea.Tick(d, func(time.Time) tea.Msg { return toastExpireMsg{id: id} })
 }
 
-// ------------------------------------------------------------ synchronisation
+// --------------------------------------------------------------------- sync
 
 func (m *Model) requestSync(src *store.Source, message string) tea.Cmd {
 	if src == nil || src.Kind != store.KindRepo {
@@ -273,7 +273,7 @@ func (m *Model) requestSync(src *store.Source, message string) tea.Cmd {
 	}
 	rs := m.repo(src.Name)
 	if len(rs.conflicts) > 0 {
-		// Commité avec la résolution du conflit.
+		// Committed along with the conflict resolution.
 		return nil
 	}
 	if rs.syncing {
@@ -370,7 +370,7 @@ func (m *Model) reload() {
 	m.rebuildRows()
 }
 
-// ------------------------------------------------------------- liste des Host
+// ---------------------------------------------------------------- host list
 
 func (m *Model) rebuildRows() {
 	selected := ""
@@ -445,7 +445,7 @@ func (m *Model) selectHost(path, name string) {
 			return
 		}
 	}
-	// Groupe replié : on le déplie pour montrer le Host.
+	// Collapsed group: expand it to show the Host.
 	if src := m.st.SourceOf(path); src != nil && m.collapsed[src.Name] {
 		delete(m.collapsed, src.Name)
 		m.rebuildRows()
@@ -478,7 +478,7 @@ func (m *Model) loadEffective() tea.Cmd {
 }
 
 func (m *Model) listHeight() int {
-	h := m.h - 5 // titre, bordures, barre d'état, aide
+	h := m.h - 5 // title, borders, status bar, help
 	if m.filtering || m.filter.Value() != "" {
 		h--
 	}
@@ -645,7 +645,7 @@ func (m *Model) openMoveDialog(h *store.Host) {
 			if err != nil {
 				return m.notify(toastErr, err.Error())
 			}
-			// L'ancien dépôt est aussi à synchroniser.
+			// The previous repository needs syncing too.
 			if h.Source.Kind == store.KindRepo {
 				touched = appendSource(touched, h.Source)
 			}
@@ -662,7 +662,7 @@ func (m *Model) openMoveDialog(h *store.Host) {
 	m.dialog = d
 }
 
-// moveFile garde le nom de fichier d'origine, ou déduit le groupe du nom.
+// moveFile keeps the original file name, or derives the group from the name.
 func moveFile(h *store.Host) string {
 	if h.Source.Kind == store.KindRepo {
 		return strings.TrimSuffix(h.File(), ".conf")
@@ -705,9 +705,9 @@ func (m *Model) openDeleteDialog(h *store.Host) {
 	}
 }
 
-// --------------------------------------------------------------------- rendu
+// ------------------------------------------------------------------ rendering
 
-// View rend l'écran actif.
+// View renders the active screen.
 func (m *Model) View() string {
 	if m.w == 0 {
 		return ""

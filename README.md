@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/romainlavabre/ssh-config-editor/mas
 
 The script installs `ssh-config-editor` into `/usr/local/bin`, asking for sudo only when needed. It downloads the binary from the latest release for Linux or macOS (amd64/arm64) and verifies its SHA-256 checksum. Go is not required.
 
-- Specific version: `curl … | SSH_CONFIG_EDITOR_VERSION=v1.0.0 sh`
+- Specific version: `curl … | SSH_CONFIG_EDITOR_VERSION=1.0.0 sh`
 - Without sudo: `curl … | SSH_CONFIG_EDITOR_BIN_DIR=$HOME/.local/bin sh`
 - Uninstall: `curl … | sh -s -- --uninstall` (your data and `~/.ssh/config` are kept)
 - Private repository: the script goes through `gh` when it is authenticated (`gh auth login`)
@@ -129,6 +129,9 @@ make release # dist + checksums.txt
 Publishing a version (this is what `install.sh` downloads):
 
 ```sh
-git tag v1.0.0 && git push origin master v1.0.0
-make publish VERSION=v1.0.0
+./tag.sh              # next patch version (1.2.3 → 1.2.4), 1.0.0 for the first one
+./tag.sh minor        # or major, or an explicit 2.0.0
+./tag.sh --dry-run    # show what would happen, change nothing
 ```
+
+Tags are digits and dots only (`1.0.0`, no `v` prefix). From a clean, up-to-date `master`, it runs the tests, creates an annotated tag, pushes `master` and the tag atomically, then creates the GitHub release with the binaries, `checksums.txt` and `install.sh`. It asks for confirmation before doing anything.

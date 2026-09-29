@@ -7,14 +7,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// choice est une option de dialogue ; run nil ferme simplement le dialogue.
+// choice is a dialog option; a nil run just closes the dialog.
 type choice struct {
 	key   string
 	label string
 	run   func(m *Model) tea.Cmd
 }
 
-// dialog est une fenêtre modale : confirmation ou choix dans une liste.
+// dialog is a modal window: a confirmation or a pick from a list.
 type dialog struct {
 	title   string
 	body    string

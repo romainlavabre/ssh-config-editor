@@ -13,16 +13,16 @@ import (
 	"github.com/romainlavabre/ssh-config-editor/internal/sshconfig"
 )
 
-// Kind distingue les trois sortes de sources.
+// Kind tells the three kinds of sources apart.
 type Kind int
 
 const (
 	KindLocal Kind = iota // ~/.config/ssh-config-editor/local.conf
-	KindRepo              // un dépôt git partagé
-	KindMain              // ce qui reste dans ~/.ssh/config
+	KindRepo              // a shared git repository
+	KindMain              // what is left in ~/.ssh/config
 )
 
-// Source est un endroit où vivent des Host.
+// Source is a place where Hosts live.
 type Source struct {
 	Kind Kind
 	Name string
@@ -30,7 +30,7 @@ type Source struct {
 	Dir  string
 }
 
-// Label est le nom affiché.
+// Label is the displayed name.
 func (s *Source) Label() string {
 	switch s.Kind {
 	case KindLocal:
@@ -41,25 +41,25 @@ func (s *Source) Label() string {
 	return s.Name
 }
 
-// Git renvoie le clone d'un dépôt.
+// Git returns a repository's clone.
 func (s *Source) Git() gitsync.Repo {
 	return gitsync.Repo{Dir: s.Dir, URL: s.Repo.URL, Branch: s.Repo.Branch}
 }
 
-// Host est un bloc Host et l'endroit où il est défini.
+// Host is a Host block and the place where it is defined.
 type Host struct {
 	Name       string
 	Source     *Source
 	Path       string
 	Block      *sshconfig.Block
-	ShadowedBy *Source // non nil : un Host du même nom est défini avant, c'est lui qui s'applique
-	Duplicated bool    // défini aussi ailleurs
+	ShadowedBy *Source // non-nil: a Host with the same name is defined earlier and wins
+	Duplicated bool    // also defined elsewhere
 }
 
-// File renvoie le nom du fichier qui définit le Host.
+// File returns the name of the file defining the Host.
 func (h *Host) File() string { return filepath.Base(h.Path) }
 
-// Store est la vue consolidée de toutes les sources.
+// Store is the consolidated view of every source.
 type Store struct {
 	Paths   Paths
 	Config  *Config
@@ -69,7 +69,7 @@ type Store struct {
 	mainRaw string
 }
 
-// Open charge la configuration de l'outil et toutes les sources.
+// Open loads the tool's configuration and every source.
 func Open(p Paths) (*Store, error) {
 	c, err := LoadConfig(p)
 	if err != nil {
@@ -79,12 +79,12 @@ func Open(p Paths) (*Store, error) {
 	return s, s.Reload()
 }
 
-// Reload relit tous les fichiers.
+// Reload re-reads every file.
 func (s *Store) Reload() error {
 	s.files = map[string]*sshconfig.File{}
 	s.Hosts = nil
-	// Les Source restent les mêmes objets d'un rechargement à l'autre : les
-	// appelants peuvent garder un pointeur.
+	// Sources stay the same objects across reloads: callers can keep a
+	// pointer.
 	prev := map[string]*Source{}
 	for _, src := range s.Sources {
 		prev[fmt.Sprint(src.Kind, "/", src.Name)] = src
@@ -151,7 +151,7 @@ func (s *Store) sourceFiles(src *Source) ([]string, error) {
 	return paths, err
 }
 
-// load lit un fichier ; ~/.ssh/config est lu sans son bloc géré.
+// load reads a file; ~/.ssh/config is read without its managed block.
 func (s *Store) load(path string) (*sshconfig.File, error) {
 	if path == s.Paths.SSHConfig {
 		rest, _ := stripManaged(s.mainRaw)
@@ -164,7 +164,7 @@ func (s *Store) load(path string) (*sshconfig.File, error) {
 	return sshconfig.Parse(string(b)), nil
 }
 
-// fresh renvoie une copie modifiable d'un fichier.
+// fresh returns a modifiable copy of a file.
 func (s *Store) fresh(path string) (*sshconfig.File, error) {
 	if f, ok := s.files[path]; ok {
 		return sshconfig.Parse(f.String()), nil
@@ -172,7 +172,7 @@ func (s *Store) fresh(path string) (*sshconfig.File, error) {
 	return s.load(path)
 }
 
-// SourceOf renvoie la source qui possède un fichier.
+// SourceOf returns the source owning a file.
 func (s *Store) SourceOf(path string) *Source {
 	for _, src := range s.Sources {
 		switch src.Kind {
@@ -193,7 +193,7 @@ func (s *Store) SourceOf(path string) *Source {
 	return nil
 }
 
-// Source renvoie une source par nom ("local", "ssh-config" ou nom de dépôt).
+// Source returns a source by name ("local", "ssh-config" or a repository name).
 func (s *Store) Source(name string) *Source {
 	for _, src := range s.Sources {
 		if src.Name == name {
@@ -203,7 +203,7 @@ func (s *Store) Source(name string) *Source {
 	return nil
 }
 
-// Repos renvoie les sources de type dépôt.
+// Repos returns the repository sources.
 func (s *Store) Repos() []*Source {
 	var out []*Source
 	for _, src := range s.Sources {
@@ -214,7 +214,7 @@ func (s *Store) Repos() []*Source {
 	return out
 }
 
-// HostsOf renvoie les Host d'une source.
+// HostsOf returns the Hosts of a source.
 func (s *Store) HostsOf(src *Source) []*Host {
 	var out []*Host
 	for _, h := range s.Hosts {
@@ -225,7 +225,7 @@ func (s *Store) HostsOf(src *Source) []*Host {
 	return out
 }
 
-// ConfFiles liste les fichiers .conf d'un dépôt.
+// ConfFiles lists a repository's .conf files.
 func (s *Store) ConfFiles(src *Source) []string {
 	if src.Kind != KindRepo {
 		return nil
@@ -238,13 +238,13 @@ func (s *Store) ConfFiles(src *Source) []string {
 	return out
 }
 
-// Target désigne le fichier où écrire un Host.
+// Target designates the file a Host is written to.
 type Target struct {
 	Source *Source
-	File   string // nom du .conf, pour un dépôt
+	File   string // .conf file name, for a repository
 }
 
-// TargetPath résout le chemin d'une cible.
+// TargetPath resolves a target's path.
 func (s *Store) TargetPath(t Target) (string, error) {
 	switch t.Source.Kind {
 	case KindLocal:
@@ -265,8 +265,8 @@ func (s *Store) TargetPath(t Target) (string, error) {
 	return filepath.Join(t.Source.Dir, name), nil
 }
 
-// SaveHost crée (old == nil) ou met à jour un Host, en le déplaçant si la
-// cible a changé. Renvoie les dépôts à synchroniser.
+// SaveHost creates (old == nil) or updates a Host, moving it if the target
+// changed. Returns the repositories to sync.
 func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Option) ([]*Source, error) {
 	name = strings.Join(strings.Fields(name), " ")
 	if name == "" {
@@ -313,7 +313,7 @@ func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Opti
 	return s.writeAll(changed)
 }
 
-// DeleteHost supprime un Host de son fichier.
+// DeleteHost removes a Host from its file.
 func (s *Store) DeleteHost(h *Host) ([]*Source, error) {
 	f, err := s.fresh(h.Path)
 	if err != nil {
@@ -327,13 +327,13 @@ func (s *Store) DeleteHost(h *Host) ([]*Source, error) {
 	return s.writeAll(map[string]*sshconfig.File{h.Path: f})
 }
 
-// MoveHost déplace un Host tel quel, commentaires compris.
+// MoveHost moves a Host as is, comments included.
 func (s *Store) MoveHost(h *Host, t Target) ([]*Source, error) {
 	return s.SaveHost(h, t, h.Name, h.Block.Options())
 }
 
-// writeAll valide puis écrit les fichiers modifiés, ~/.ssh/config en dernier,
-// et renvoie les dépôts touchés.
+// writeAll validates then writes the modified files, ~/.ssh/config last,
+// and returns the repositories touched.
 func (s *Store) writeAll(changed map[string]*sshconfig.File) ([]*Source, error) {
 	contents := map[string]string{}
 	for path, f := range changed {
@@ -357,7 +357,7 @@ func (s *Store) writeAll(changed map[string]*sshconfig.File) ([]*Source, error) 
 		src := s.SourceOf(path)
 		c := contents[path]
 		if src != nil && src.Kind == KindRepo && strings.TrimSpace(c) == "" {
-			// Un fichier vidé disparaît du dépôt.
+			// An emptied file is removed from the repository.
 			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return touched, err
 			}
@@ -378,13 +378,13 @@ func (s *Store) writeAll(changed map[string]*sshconfig.File) ([]*Source, error) 
 	return touched, s.Reload()
 }
 
-// ManagedUpToDate indique si ~/.ssh/config contient déjà le bon bloc d'Include.
+// ManagedUpToDate reports whether ~/.ssh/config already holds the right Include block.
 func (s *Store) ManagedUpToDate() bool {
 	rest, _ := stripManaged(s.mainRaw)
 	return composeMain(managedBlock(s.Paths, s.Config.Repos), rest) == s.mainRaw
 }
 
-// EnsureManaged (ré)écrit le bloc d'Include en tête de ~/.ssh/config.
+// EnsureManaged (re)writes the Include block at the top of ~/.ssh/config.
 func (s *Store) EnsureManaged() error {
 	if s.ManagedUpToDate() {
 		return nil
@@ -397,7 +397,7 @@ func (s *Store) EnsureManaged() error {
 	return err
 }
 
-// AddRepo clone un dépôt et l'ajoute en dernière priorité.
+// AddRepo clones a repository and adds it with the lowest priority.
 func (s *Store) AddRepo(r Repo) error {
 	r, err := s.CheckRepo(r)
 	if err != nil {
@@ -409,7 +409,7 @@ func (s *Store) AddRepo(r Repo) error {
 	return s.RegisterRepo(r)
 }
 
-// CheckRepo normalise et valide un dépôt avant clonage.
+// CheckRepo normalizes and validates a repository before cloning.
 func (s *Store) CheckRepo(r Repo) (Repo, error) {
 	r.Name = strings.TrimSpace(r.Name)
 	r.URL = strings.TrimSpace(r.URL)
@@ -434,7 +434,7 @@ func (s *Store) CheckRepo(r Repo) (Repo, error) {
 	return r, nil
 }
 
-// CloneRepo clone sans toucher au Store : peut tourner en arrière-plan.
+// CloneRepo clones without touching the Store: safe to run in the background.
 func CloneRepo(p Paths, r Repo) error {
 	dir := p.RepoDir(r.Name)
 	if _, err := gitsync.Clone(r.URL, dir, r.Branch); err != nil {
@@ -444,17 +444,17 @@ func CloneRepo(p Paths, r Repo) error {
 	return nil
 }
 
-// RegisterRepo ajoute un dépôt déjà cloné à la configuration.
+// RegisterRepo adds an already cloned repository to the configuration.
 func (s *Store) RegisterRepo(r Repo) error {
 	s.Config.Repos = append(s.Config.Repos, r)
 	return s.saveConfig()
 }
 
-// ErrUnpushed signale un dépôt dont des modifications ne sont pas poussées.
+// ErrUnpushed reports a repository with changes that are not pushed.
 var ErrUnpushed = errors.New("des modifications de ce dépôt ne sont pas poussées")
 
-// RemoveRepo retire un dépôt et son clone. Sans force, refuse de perdre des
-// modifications non poussées.
+// RemoveRepo removes a repository and its clone. Without force, it refuses to
+// lose unpushed changes.
 func (s *Store) RemoveRepo(name string, force bool) error {
 	src := s.Source(name)
 	if src == nil || src.Kind != KindRepo {
@@ -478,7 +478,7 @@ func (s *Store) RemoveRepo(name string, force bool) error {
 	return os.RemoveAll(src.Dir)
 }
 
-// MoveRepo change la priorité d'un dépôt (delta -1 : plus prioritaire).
+// MoveRepo changes a repository's priority (delta -1: higher priority).
 func (s *Store) MoveRepo(name string, delta int) error {
 	for i, r := range s.Config.Repos {
 		if r.Name != name {
@@ -504,7 +504,7 @@ func (s *Store) saveConfig() error {
 	return s.EnsureManaged()
 }
 
-// Keys liste les clés privées de ~/.ssh, sous la forme ~/.ssh/nom.
+// Keys lists the private keys in ~/.ssh, as ~/.ssh/name.
 func (s *Store) Keys() []string {
 	entries, err := os.ReadDir(s.Paths.SSHDir())
 	if err != nil {
@@ -532,7 +532,7 @@ func (s *Store) Keys() []string {
 	return out
 }
 
-// Effective renvoie la configuration résolue par ssh pour un alias (ssh -G).
+// Effective returns the configuration resolved by ssh for an alias (ssh -G).
 func (s *Store) Effective(alias string) (map[string]string, error) {
 	out, err := exec.Command("ssh", "-F", s.Paths.SSHConfig, "-G", alias).CombinedOutput()
 	if err != nil {

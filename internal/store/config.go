@@ -1,5 +1,5 @@
-// Package store rassemble les Host de toutes les sources (surcharges locales,
-// dépôts, ~/.ssh/config) et applique les modifications sur disque.
+// Package store gathers the Hosts from every source (local overrides,
+// repositories, ~/.ssh/config) and applies changes on disk.
 package store
 
 import (
@@ -12,14 +12,14 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Paths regroupe les emplacements utilisés par l'outil.
+// Paths groups the locations used by the tool.
 type Paths struct {
 	SSHConfig string // ~/.ssh/config
 	ConfigDir string // ~/.config/ssh-config-editor
 	DataDir   string // ~/.local/share/ssh-config-editor
 }
 
-// DefaultPaths respecte $HOME, $XDG_CONFIG_HOME et $XDG_DATA_HOME.
+// DefaultPaths honours $HOME, $XDG_CONFIG_HOME and $XDG_DATA_HOME.
 func DefaultPaths() (Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -40,33 +40,33 @@ func DefaultPaths() (Paths, error) {
 	}, nil
 }
 
-// ConfigFile est la configuration de l'outil (liste des dépôts).
+// ConfigFile is the tool's configuration (list of repositories).
 func (p Paths) ConfigFile() string { return filepath.Join(p.ConfigDir, "config.toml") }
 
-// LocalConf contient les surcharges personnelles, jamais partagées.
+// LocalConf holds the personal overrides, never shared.
 func (p Paths) LocalConf() string { return filepath.Join(p.ConfigDir, "local.conf") }
 
-// RepoDir est le clone local d'un dépôt.
+// RepoDir is the local clone of a repository.
 func (p Paths) RepoDir(name string) string { return filepath.Join(p.DataDir, "repos", name) }
 
-// SSHDir est le dossier des clés.
+// SSHDir is the keys directory.
 func (p Paths) SSHDir() string { return filepath.Dir(p.SSHConfig) }
 
-// Repo est un dépôt de configurations partagé.
+// Repo is a shared configuration repository.
 type Repo struct {
 	Name   string `toml:"name"`
 	URL    string `toml:"url"`
 	Branch string `toml:"branch"`
 }
 
-// Config est le contenu de config.toml. L'ordre des dépôts est leur priorité.
+// Config is the content of config.toml. Repository order is their priority.
 type Config struct {
 	Repos []Repo `toml:"repo"`
 }
 
 var repoName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
-// ValidateRepoName refuse les noms qui ne feraient pas un nom de dossier sûr.
+// ValidateRepoName rejects names that would not make a safe directory name.
 func ValidateRepoName(name string) error {
 	if !repoName.MatchString(name) {
 		return fmt.Errorf("nom de dépôt invalide %q : lettres, chiffres, . _ - uniquement", name)
@@ -77,7 +77,7 @@ func ValidateRepoName(name string) error {
 	return nil
 }
 
-// LoadConfig lit config.toml ; un fichier absent donne une configuration vide.
+// LoadConfig reads config.toml; a missing file yields an empty configuration.
 func LoadConfig(p Paths) (*Config, error) {
 	c := &Config{}
 	if _, err := toml.DecodeFile(p.ConfigFile(), c); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -91,7 +91,7 @@ func LoadConfig(p Paths) (*Config, error) {
 	return c, nil
 }
 
-// SaveConfig écrit config.toml.
+// SaveConfig writes config.toml.
 func SaveConfig(p Paths, c *Config) error {
 	if err := os.MkdirAll(p.ConfigDir, 0o755); err != nil {
 		return err

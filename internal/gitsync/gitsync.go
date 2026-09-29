@@ -1,6 +1,6 @@
-// Package gitsync synchronise un dépôt de configurations : commit, fetch,
-// fusion Host par Host, push. Il passe par le binaire git pour réutiliser les
-// clés et les identifiants de l'utilisateur.
+// Package gitsync syncs a configuration repository: commit, fetch,
+// Host-by-Host merge, push. It shells out to the git binary to reuse the
+// user's keys and credentials.
 package gitsync
 
 import (
@@ -18,36 +18,36 @@ import (
 	"github.com/romainlavabre/ssh-config-editor/internal/sshconfig"
 )
 
-// Repo est un clone local.
+// Repo is a local clone.
 type Repo struct {
 	Dir    string
 	URL    string
 	Branch string
 }
 
-// Status résume l'écart avec le distant.
+// Status summarizes the gap with the remote.
 type Status struct {
 	Ahead    int
 	Behind   int
 	Dirty    bool
 	Merging  bool
-	NoRemote bool // la branche n'existe pas encore sur le distant
+	NoRemote bool // the branch does not exist on the remote yet
 }
 
-// FileConflict regroupe les conflits d'un fichier.
+// FileConflict groups the conflicts of one file.
 type FileConflict struct {
-	Path  string // relatif au dépôt
+	Path  string // relative to the repository
 	Merge *sshconfig.Merge
 }
 
-// Result est l'issue d'une synchronisation.
+// Result is the outcome of a sync.
 type Result struct {
 	Conflicts []FileConflict
-	Offline   bool   // distant injoignable : les commits restent en local
-	Warning   string // détail quand Offline
+	Offline   bool   // remote unreachable: commits stay local
+	Warning   string // detail when Offline
 }
 
-// GitError porte la sortie d'erreur de git.
+// GitError carries git's error output.
 type GitError struct {
 	Args   []string
 	Stderr string
@@ -69,8 +69,8 @@ var (
 	identityEnv  []string
 )
 
-// fallbackIdentity fournit une identité quand git n'en a aucune, sinon
-// commit et merge échouent sur un poste jamais configuré.
+// fallbackIdentity provides an identity when git has none, otherwise commit
+// and merge fail on a machine that was never configured.
 func fallbackIdentity() []string {
 	identityOnce.Do(func() {
 		if os.Getenv("GIT_COMMITTER_EMAIL") != "" {
@@ -94,7 +94,7 @@ func fallbackIdentity() []string {
 func env() []string {
 	e := append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C", "GIT_MERGE_AUTOEDIT=no")
 	if os.Getenv("GIT_SSH_COMMAND") == "" {
-		// Jamais de demande de mot de passe : elle bloquerait l'interface.
+		// Never prompt for a password: it would block the interface.
 		e = append(e, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
 	}
 	return append(e, fallbackIdentity()...)
@@ -120,7 +120,7 @@ func (r Repo) ok(args ...string) bool {
 	return err == nil
 }
 
-// Clone récupère le dépôt et se place sur la branche, même si le distant est vide.
+// Clone fetches the repository and checks out the branch, even if the remote is empty.
 func Clone(url, dir, branch string) (Repo, error) {
 	r := Repo{Dir: dir, URL: url, Branch: branch}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
@@ -149,10 +149,10 @@ func (r Repo) hasRemoteBranch() bool {
 
 func (r Repo) hasHead() bool { return r.ok("rev-parse", "--verify", "--quiet", "HEAD") }
 
-// Merging indique une fusion en attente de résolution.
+// Merging reports a merge waiting to be resolved.
 func (r Repo) Merging() bool { return r.ok("rev-parse", "--verify", "--quiet", "MERGE_HEAD") }
 
-// Status calcule l'écart local/distant sans toucher au réseau.
+// Status computes the local/remote gap without touching the network.
 func (r Repo) Status() (Status, error) {
 	var s Status
 	out, err := r.git("status", "--porcelain")
@@ -186,10 +186,10 @@ func (r Repo) Status() (Status, error) {
 	return s, nil
 }
 
-// Sync commite les modifications locales, récupère le distant, fusionne Host
-// par Host puis pousse. Si un même Host a été modifié des deux côtés, la fusion
-// reste en cours et Result.Conflicts liste ce qu'il faut trancher : rien n'est
-// poussé tant que Resolve n'a pas été appelé.
+// Sync commits local changes, fetches the remote, merges Host by Host, then
+// pushes. If the same Host was changed on both sides, the merge stays in
+// progress and Result.Conflicts lists what must be resolved: nothing is pushed
+// until Resolve has been called.
 func (r Repo) Sync(message string) (Result, error) {
 	if r.Merging() {
 		conflicts, err := r.PendingConflicts()
@@ -222,7 +222,7 @@ func (r Repo) Sync(message string) (Result, error) {
 		}
 		_, err = r.git("push", "--quiet", "origin", "HEAD:refs/heads/"+r.Branch)
 		if err == nil {
-			// Aligne la référence distante même si le refspec de fetch ne la couvre pas.
+			// Align the remote-tracking ref even if the fetch refspec does not cover it.
 			_, _ = r.git("update-ref", r.remoteRef(), "HEAD")
 			return Result{}, nil
 		}
@@ -279,9 +279,9 @@ func (r Repo) unmerged() ([]string, error) {
 	return files, nil
 }
 
-// autoResolve rejoue la fusion Host par Host sur chaque fichier en conflit
-// texte : un Host modifié d'un seul côté prend cette version, seuls les Host
-// modifiés des deux côtés remontent.
+// autoResolve replays the merge Host by Host on every file with a textual
+// conflict: a Host changed on one side only takes that version, only Hosts
+// changed on both sides are reported.
 func (r Repo) autoResolve() ([]FileConflict, error) {
 	files, err := r.unmerged()
 	if err != nil {
@@ -290,7 +290,7 @@ func (r Repo) autoResolve() ([]FileConflict, error) {
 	var conflicts []FileConflict
 	for _, f := range files {
 		if !strings.HasSuffix(f, ".conf") {
-			// Hors configuration (README…) : la version distante gagne.
+			// Not a config file (README…): the remote version wins.
 			if _, err := r.git("checkout", "--theirs", "--", f); err != nil {
 				_, err = r.git("rm", "--quiet", "--", f)
 				if err != nil {
@@ -346,7 +346,7 @@ func (r Repo) writeResolved(path string, m *sshconfig.Merge) error {
 	return err
 }
 
-// PendingConflicts recalcule les conflits d'une fusion en cours.
+// PendingConflicts recomputes the conflicts of an ongoing merge.
 func (r Repo) PendingConflicts() ([]FileConflict, error) {
 	if !r.Merging() {
 		return nil, nil
@@ -354,8 +354,8 @@ func (r Repo) PendingConflicts() ([]FileConflict, error) {
 	return r.autoResolve()
 }
 
-// Resolve écrit les versions tranchées et termine la fusion. Il reste à
-// appeler Sync pour pousser.
+// Resolve writes the chosen versions and concludes the merge. Sync still has
+// to be called to push.
 func (r Repo) Resolve(files []FileConflict) error {
 	for _, fc := range files {
 		if err := r.writeResolved(fc.Path, fc.Merge); err != nil {
@@ -373,7 +373,7 @@ func (r Repo) Resolve(files []FileConflict) error {
 	return err
 }
 
-// AbortMerge abandonne la fusion en cours ; les commits locaux restent à pousser.
+// AbortMerge aborts the ongoing merge; local commits remain to be pushed.
 func (r Repo) AbortMerge() error {
 	_, err := r.git("merge", "--abort")
 	return err
@@ -409,7 +409,7 @@ func author() (string, string) {
 	return name, host
 }
 
-// Author renvoie "utilisateur@machine" pour les messages de commit.
+// Author returns "user@host" for commit messages.
 func Author() string {
 	name, host := author()
 	return name + "@" + host

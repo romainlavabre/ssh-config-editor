@@ -71,7 +71,7 @@ func (v *reposView) setFocus(i int) tea.Cmd {
 	return v.inputs[v.focus].Focus()
 }
 
-// nameFromURL déduit un nom de dépôt : git@github.com:equipe/ssh-config.git → ssh-config.
+// nameFromURL derives a repository name: git@github.com:team/ssh-config.git → ssh-config.
 func nameFromURL(url string) string {
 	url = strings.TrimSuffix(strings.TrimSpace(url), "/")
 	url = strings.TrimSuffix(url, ".git")
