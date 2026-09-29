@@ -29,7 +29,7 @@ func (m *Model) openImport() {
 
 func (v *importView) destLabel(i int) string {
 	if v.dests[i] == nil {
-		return "laisser"
+		return "keep"
 	}
 	return v.dests[i].Label()
 }
@@ -82,7 +82,7 @@ func (m *Model) confirmImport() {
 	v := m.imp
 	counts, left := v.summary()
 	if len(counts) == 0 {
-		m.dialog = &dialog{title: "Rien à déplacer", body: "Choisissez une destination avec ←/→ pour au moins un groupe.", choices: []choice{{label: "ok"}}}
+		m.dialog = &dialog{title: "Nothing to move", body: "Choose a destination with ←/→ for at least one group.", choices: []choice{{label: "ok"}}}
 		return
 	}
 	var parts []string
@@ -91,13 +91,13 @@ func (m *Model) confirmImport() {
 			parts = append(parts, fmt.Sprintf("%d → %s", n, d.Label()))
 		}
 	}
-	body := strings.Join(parts, ", ") + fmt.Sprintf(". %d restent dans ~/.ssh/config.", left) +
-		"\n\n~/.ssh/config est sauvegardé avant d'être réécrit. Les dépôts sont poussés aussitôt."
+	body := strings.Join(parts, ", ") + fmt.Sprintf(". %d stay in ~/.ssh/config.", left) +
+		"\n\n~/.ssh/config is backed up before being rewritten. The repositories are pushed right away."
 	m.dialog = &dialog{
-		title: "Importer ?",
+		title: "Import?",
 		body:  body,
 		choices: []choice{
-			{key: "y", label: "importer", run: func(m *Model) tea.Cmd {
+			{key: "y", label: "import", run: func(m *Model) tea.Cmd {
 				assign := map[string]*store.Source{}
 				for i, g := range v.groups {
 					assign[g.Key] = v.dests[v.choice[i]]
@@ -109,11 +109,11 @@ func (m *Model) confirmImport() {
 				m.screen = scrMain
 				m.rebuildRows()
 				return tea.Batch(
-					m.notify(toastOK, "import terminé · sauvegarde : "+backup),
-					m.syncTouched(touched, commitMessage("importe", fmt.Sprintf("%d Host", total(counts)))),
+					m.notify(toastOK, "import done · backup: "+backup),
+					m.syncTouched(touched, commitMessage("import", fmt.Sprintf("%d %s", total(counts), plural(total(counts), "host", "hosts")))),
 				)
 			}},
-			{key: "n", label: "revenir"},
+			{key: "n", label: "back"},
 		},
 	}
 }
@@ -128,17 +128,17 @@ func total(counts map[string]int) int {
 
 func (m *Model) viewImport() string {
 	v := m.imp
-	lines := []string{m.titleBar(sMuted.Render("import de ~/.ssh/config")), ""}
+	lines := []string{m.titleBar(sMuted.Render("import ~/.ssh/config")), ""}
 	if len(v.groups) == 0 {
-		lines = append(lines, " Rien à importer : ~/.ssh/config ne contient plus de Host concret.", "", " "+sMuted.Render("une touche pour revenir"))
+		lines = append(lines, " Nothing to import: ~/.ssh/config has no concrete Host left.", "", " "+sMuted.Render("press any key to go back"))
 		return box(lines, m.w, m.h)
 	}
 	lines = append(lines,
-		" Les Host de ~/.ssh/config sont regroupés par préfixe. Pour chaque groupe, choisissez où le ranger :",
-		" "+sMuted.Render("un dépôt (partagé), local (perso) ou laisser (reste dans ~/.ssh/config). Host * et Match restent en place."),
+		" The Hosts in ~/.ssh/config are grouped by prefix. For each group, choose where it goes:",
+		" "+sMuted.Render("a repository (shared), local (personal) or keep (stays in ~/.ssh/config). Host * and Match stay in place."),
 	)
 	if len(m.st.Repos()) == 0 {
-		lines = append(lines, " "+sWarn.Render("Aucun dépôt configuré : R pour en ajouter un avant d'importer."))
+		lines = append(lines, " "+sWarn.Render("No repository configured: press R to add one before importing."))
 	}
 	lines = append(lines, "")
 
@@ -191,9 +191,9 @@ func (m *Model) viewImport() string {
 			parts = append(parts, fmt.Sprintf("%d → %s", n, d.Label()))
 		}
 	}
-	parts = append(parts, fmt.Sprintf("%d restent", left))
+	parts = append(parts, fmt.Sprintf("%d stay", left))
 	lines = append(lines, "", " "+sBold.Render(strings.Join(parts, " · ")))
 
-	help := helpLine("←/→", "destination", "space", "voir les Host", "a", "appliquer à tous", "enter", "importer", "R", "dépôts", "esc", "retour")
+	help := helpLine("←/→", "destination", "space", "show Hosts", "a", "apply to all", "enter", "import", "R", "repos", "esc", "back")
 	return box(lines, m.w, m.h-1) + "\n" + m.footer(help)
 }

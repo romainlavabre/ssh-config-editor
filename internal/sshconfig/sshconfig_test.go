@@ -25,9 +25,9 @@ Match host *.internal exec "true"
 `
 
 func TestRoundTrip(t *testing.T) {
-	for _, c := range []string{sample, "", "\n", "Host a", "# juste un commentaire\n\n", strings.TrimSuffix(sample, "\n")} {
+	for _, c := range []string{sample, "", "\n", "Host a", "# just a comment\n\n", strings.TrimSuffix(sample, "\n")} {
 		if got := Parse(c).String(); got != c {
-			t.Errorf("aller-retour cassé\nattendu %q\nobtenu  %q", c, got)
+			t.Errorf("round trip broken\nwant %q\ngot  %q", c, got)
 		}
 	}
 }
@@ -35,21 +35,21 @@ func TestRoundTrip(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	f := Parse(sample)
 	if len(f.Blocks) != 4 {
-		t.Fatalf("attendu 4 blocs, obtenu %d", len(f.Blocks))
+		t.Fatalf("expected 4 blocks, got %d", len(f.Blocks))
 	}
 	gh := f.Find("github.com")
 	if gh == nil {
-		t.Fatal("github.com introuvable")
+		t.Fatal("github.com not found")
 	}
 	if got := gh.Get("identityfile"); got != "~/.ssh/github" {
 		t.Errorf("IdentityFile = %q", got)
 	}
 	if f.Blocks[0].IsConcrete() || f.Blocks[3].IsConcrete() || !gh.IsConcrete() {
-		t.Error("IsConcrete ne distingue pas les jokers et les Match")
+		t.Error("IsConcrete does not tell wildcards and Match apart")
 	}
 	cp := f.Find("fairfair-live-cp-vpn-ext")
 	if got := cp.Get("HostName"); got != "57.128.108.101" {
-		t.Errorf("la ligne commentée ne doit pas compter : HostName = %q", got)
+		t.Errorf("the commented-out line must not count: HostName = %q", got)
 	}
 }
 
@@ -69,10 +69,10 @@ func TestSetOptionsKeepsCommentsAndOrder(t *testing.T) {
   HostName 1.2.3.4
   Port 2222`
 	if got := b.Text(); got != want {
-		t.Errorf("obtenu :\n%s\nattendu :\n%s", got, want)
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 	if !strings.Contains(f.String(), "\n\nHost   github.com") {
-		t.Error("la séparation avec le bloc suivant a été perdue")
+		t.Error("the separation from the next block was lost")
 	}
 }
 
@@ -81,7 +81,7 @@ func TestSetOptionsMultiValued(t *testing.T) {
 	b.SetOptions([]Option{{"IdentityFile", "a"}, {"IdentityFile", "c"}, {"User", ""}})
 	want := "Host x\n  IdentityFile a\n  IdentityFile c"
 	if got := b.Text(); got != want {
-		t.Errorf("obtenu %q", got)
+		t.Errorf("got %q", got)
 	}
 }
 
@@ -90,16 +90,16 @@ func TestAppendAndRemove(t *testing.T) {
 	f.Append(NewHostBlock("b", []Option{{"HostName", "10.0.0.1"}}))
 	want := "Host a\n  User x\n\nHost b\n  HostName 10.0.0.1\n"
 	if got := f.String(); got != want {
-		t.Fatalf("obtenu %q", got)
+		t.Fatalf("got %q", got)
 	}
 	f.Remove(f.Find("a"))
 	if got := f.String(); got != "Host b\n  HostName 10.0.0.1\n" {
-		t.Errorf("obtenu %q", got)
+		t.Errorf("got %q", got)
 	}
 
 	empty := Parse("")
 	empty.Append(NewHostBlock("c", nil))
 	if got := empty.String(); got != "Host c\n" {
-		t.Errorf("fichier vide : obtenu %q", got)
+		t.Errorf("empty file: got %q", got)
 	}
 }

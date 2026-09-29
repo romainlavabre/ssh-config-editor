@@ -254,13 +254,13 @@ func (s *Store) TargetPath(t Target) (string, error) {
 	}
 	name := strings.TrimSpace(t.File)
 	if name == "" {
-		return "", errors.New("choisissez un fichier .conf dans le dépôt")
+		return "", errors.New("choose a .conf file in the repository")
 	}
 	if !strings.HasSuffix(name, ".conf") {
 		name += ".conf"
 	}
 	if strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") {
-		return "", fmt.Errorf("nom de fichier invalide : %s", name)
+		return "", fmt.Errorf("invalid file name: %s", name)
 	}
 	return filepath.Join(t.Source.Dir, name), nil
 }
@@ -270,7 +270,7 @@ func (s *Store) TargetPath(t Target) (string, error) {
 func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Option) ([]*Source, error) {
 	name = strings.Join(strings.Fields(name), " ")
 	if name == "" {
-		return nil, errors.New("l'alias (Host) est obligatoire")
+		return nil, errors.New("the alias (Host) is required")
 	}
 	dest, err := s.TargetPath(t)
 	if err != nil {
@@ -285,7 +285,7 @@ func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Opti
 	var block *sshconfig.Block
 	if old != nil && old.Path == dest {
 		if block = destF.Find(old.Name); block == nil {
-			return nil, fmt.Errorf("%s a disparu de %s (synchronisé entre-temps ?)", old.Name, old.File())
+			return nil, fmt.Errorf("%s is no longer in %s (synced in the meantime?)", old.Name, old.File())
 		}
 	} else {
 		if old != nil {
@@ -295,7 +295,7 @@ func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Opti
 			}
 			ob := oldF.Find(old.Name)
 			if ob == nil {
-				return nil, fmt.Errorf("%s a disparu de %s (synchronisé entre-temps ?)", old.Name, old.File())
+				return nil, fmt.Errorf("%s is no longer in %s (synced in the meantime?)", old.Name, old.File())
 			}
 			block = ob.Clone()
 			oldF.Remove(ob)
@@ -306,7 +306,7 @@ func (s *Store) SaveHost(old *Host, t Target, name string, opts []sshconfig.Opti
 		destF.Append(block)
 	}
 	if other := destF.Find(name); other != nil && other != block {
-		return nil, fmt.Errorf("%s est déjà défini dans %s", name, filepath.Base(dest))
+		return nil, fmt.Errorf("%s is already defined in %s", name, filepath.Base(dest))
 	}
 	block.SetName(name)
 	block.SetOptions(opts)
@@ -321,7 +321,7 @@ func (s *Store) DeleteHost(h *Host) ([]*Source, error) {
 	}
 	b := f.Find(h.Name)
 	if b == nil {
-		return nil, fmt.Errorf("%s a disparu de %s", h.Name, h.File())
+		return nil, fmt.Errorf("%s is no longer in %s", h.Name, h.File())
 	}
 	f.Remove(b)
 	return s.writeAll(map[string]*sshconfig.File{h.Path: f})
@@ -342,7 +342,7 @@ func (s *Store) writeAll(changed map[string]*sshconfig.File) ([]*Source, error) 
 			c = composeMain(managedBlock(s.Paths, s.Config.Repos), c)
 		}
 		if err := Validate(c); err != nil {
-			return nil, fmt.Errorf("%s : %w", filepath.Base(path), err)
+			return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
 		}
 		contents[path] = c
 	}
@@ -421,15 +421,15 @@ func (s *Store) CheckRepo(r Repo) (Repo, error) {
 		return r, err
 	}
 	if r.URL == "" {
-		return r, errors.New("l'URL du dépôt est obligatoire")
+		return r, errors.New("the repository URL is required")
 	}
 	for _, e := range s.Config.Repos {
 		if e.Name == r.Name {
-			return r, fmt.Errorf("un dépôt s'appelle déjà %s", r.Name)
+			return r, fmt.Errorf("a repository named %s already exists", r.Name)
 		}
 	}
 	if _, err := os.Stat(s.Paths.RepoDir(r.Name)); err == nil {
-		return r, fmt.Errorf("%s existe déjà : supprimez-le ou choisissez un autre nom", s.Paths.RepoDir(r.Name))
+		return r, fmt.Errorf("%s already exists: remove it or choose another name", s.Paths.RepoDir(r.Name))
 	}
 	return r, nil
 }
@@ -451,14 +451,14 @@ func (s *Store) RegisterRepo(r Repo) error {
 }
 
 // ErrUnpushed reports a repository with changes that are not pushed.
-var ErrUnpushed = errors.New("des modifications de ce dépôt ne sont pas poussées")
+var ErrUnpushed = errors.New("this repository has changes that are not pushed")
 
 // RemoveRepo removes a repository and its clone. Without force, it refuses to
 // lose unpushed changes.
 func (s *Store) RemoveRepo(name string, force bool) error {
 	src := s.Source(name)
 	if src == nil || src.Kind != KindRepo {
-		return fmt.Errorf("dépôt inconnu : %s", name)
+		return fmt.Errorf("unknown repository: %s", name)
 	}
 	if !force {
 		if st, err := src.Git().Status(); err == nil && (st.Ahead > 0 || st.Dirty || st.Merging) {
@@ -491,7 +491,7 @@ func (s *Store) MoveRepo(name string, delta int) error {
 		s.Config.Repos[i], s.Config.Repos[j] = s.Config.Repos[j], s.Config.Repos[i]
 		return s.saveConfig()
 	}
-	return fmt.Errorf("dépôt inconnu : %s", name)
+	return fmt.Errorf("unknown repository: %s", name)
 }
 
 func (s *Store) saveConfig() error {

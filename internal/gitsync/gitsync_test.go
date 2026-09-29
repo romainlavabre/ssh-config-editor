@@ -12,7 +12,7 @@ import (
 func team(t *testing.T) (Repo, Repo) {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git absent")
+		t.Skip("git not installed")
 	}
 	root := t.TempDir()
 	remote := filepath.Join(root, "remote.git")
@@ -53,7 +53,7 @@ func mustSync(t *testing.T, r Repo, msg string) Result {
 		t.Fatal(err)
 	}
 	if res.Offline {
-		t.Fatalf("hors ligne : %s", res.Warning)
+		t.Fatalf("offline: %s", res.Warning)
 	}
 	return res
 }
@@ -66,7 +66,7 @@ func TestNeighbourHostsMergeAutomatically(t *testing.T) {
 	mustSync(t, alice, "init")
 	mustSync(t, bob, "")
 	if got := read(t, bob, "team.conf"); got != hosts {
-		t.Fatalf("bob n'a pas reçu le fichier : %q", got)
+		t.Fatalf("bob did not receive the file: %q", got)
 	}
 
 	// Two neighbouring Hosts: a textual conflict for git, no per-Host conflict.
@@ -74,18 +74,18 @@ func TestNeighbourHostsMergeAutomatically(t *testing.T) {
 	write(t, bob, "team.conf", strings.Replace(hosts, "10.0.0.2", "10.0.0.22", 1))
 	mustSync(t, alice, "alice")
 	if res := mustSync(t, bob, "bob"); len(res.Conflicts) != 0 {
-		t.Fatalf("conflits inattendus : %+v", res.Conflicts)
+		t.Fatalf("unexpected conflicts: %+v", res.Conflicts)
 	}
 	mustSync(t, alice, "")
 
 	for _, r := range []Repo{alice, bob} {
 		got := read(t, r, "team.conf")
 		if !strings.Contains(got, "10.0.0.11") || !strings.Contains(got, "10.0.0.22") {
-			t.Errorf("%s : fusion incomplète :\n%s", filepath.Base(r.Dir), got)
+			t.Errorf("%s: incomplete merge:\n%s", filepath.Base(r.Dir), got)
 		}
 		st, _ := r.Status()
 		if st.Ahead != 0 || st.Behind != 0 || st.Dirty || st.Merging {
-			t.Errorf("%s : pas à jour : %+v", filepath.Base(r.Dir), st)
+			t.Errorf("%s: not up to date: %+v", filepath.Base(r.Dir), st)
 		}
 	}
 }
@@ -101,12 +101,12 @@ func TestSameHostConflictBlocksPushUntilResolved(t *testing.T) {
 	mustSync(t, alice, "alice")
 	res := mustSync(t, bob, "bob")
 	if len(res.Conflicts) != 1 || len(res.Conflicts[0].Merge.Conflicts) != 1 {
-		t.Fatalf("attendu un conflit sur b, obtenu %+v", res.Conflicts)
+		t.Fatalf("expected a conflict on b, got %+v", res.Conflicts)
 	}
 
 	// A Sync during the conflict pushes nothing.
 	if res := mustSync(t, bob, ""); len(res.Conflicts) != 1 {
-		t.Fatal("le conflit doit rester en attente")
+		t.Fatal("the conflict should stay pending")
 	}
 	pending, err := bob.PendingConflicts()
 	if err != nil || len(pending) != 1 {
@@ -120,7 +120,7 @@ func TestSameHostConflictBlocksPushUntilResolved(t *testing.T) {
 	mustSync(t, bob, "")
 	mustSync(t, alice, "")
 	if got := read(t, alice, "team.conf"); !strings.Contains(got, "10.0.0.21") {
-		t.Errorf("alice doit recevoir la version tranchée par bob :\n%s", got)
+		t.Errorf("alice should receive the version resolved by bob:\n%s", got)
 	}
 }
 
@@ -140,15 +140,15 @@ func TestFirstPushesFromTwoClonesOfEmptyRemote(t *testing.T) {
 func TestOfflineKeepsLocalCommit(t *testing.T) {
 	alice, _ := team(t)
 	write(t, alice, "team.conf", hosts)
-	if _, err := alice.git("remote", "set-url", "origin", filepath.Join(t.TempDir(), "absent.git")); err != nil {
+	if _, err := alice.git("remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git")); err != nil {
 		t.Fatal(err)
 	}
-	res, err := alice.Sync("hors ligne")
+	res, err := alice.Sync("offline")
 	if err != nil || !res.Offline {
-		t.Fatalf("attendu Offline, obtenu %+v %v", res, err)
+		t.Fatalf("expected Offline, got %+v %v", res, err)
 	}
 	st, _ := alice.Status()
 	if st.Ahead != 1 || st.Dirty {
-		t.Errorf("le commit doit rester en local : %+v", st)
+		t.Errorf("the commit should stay local: %+v", st)
 	}
 }

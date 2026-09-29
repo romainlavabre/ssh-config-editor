@@ -39,7 +39,7 @@ func (m *Model) openRepos() {
 }
 
 func (v *reposView) startAdding() tea.Cmd {
-	ph := []string{"git@github.com:equipe/ssh-config.git", "equipe", "main"}
+	ph := []string{"git@github.com:team/ssh-config.git", "team", "main"}
 	for i := range v.inputs {
 		ti := textinput.New()
 		ti.Prompt = ""
@@ -143,7 +143,7 @@ func (m *Model) updateRepos(k tea.KeyMsg) tea.Cmd {
 		}
 		v.cursor = max(0, min(len(repos)-1, v.cursor+d))
 		m.rebuildRows()
-		return m.notify(toastOK, "priorité mise à jour dans ~/.ssh/config")
+		return m.notify(toastOK, "priority updated in ~/.ssh/config")
 	case "s":
 		if len(repos) > 0 {
 			return m.requestSync(repos[v.cursor], "")
@@ -176,7 +176,7 @@ func (m *Model) onCloneDone(msg cloneDoneMsg) tea.Cmd {
 	v := m.reposV
 	v.cloning = ""
 	if msg.err != nil {
-		v.err = "clonage impossible : " + firstLine(msg.err.Error())
+		v.err = "cannot clone: " + firstLine(msg.err.Error())
 		return nil
 	}
 	if err := m.st.RegisterRepo(msg.repo); err != nil {
@@ -188,23 +188,23 @@ func (m *Model) onCloneDone(msg cloneDoneMsg) tea.Cmd {
 	m.rebuildRows()
 	n := len(m.st.HostsOf(m.st.Source(msg.repo.Name)))
 	return tea.Batch(
-		m.notify(toastOK, fmt.Sprintf("%s cloné · %d Host · ajouté à ~/.ssh/config", msg.repo.Name, n)),
+		m.notify(toastOK, fmt.Sprintf("%s cloned · %d %s · added to ~/.ssh/config", msg.repo.Name, n, plural(n, "Host", "Hosts"))),
 		m.requestSync(m.st.Source(msg.repo.Name), ""),
 	)
 }
 
 func (m *Model) openRemoveRepoDialog(src *store.Source, force bool) {
-	body := "Le clone local est supprimé et ses Host disparaissent de ~/.ssh/config. Le dépôt distant n'est pas touché."
+	body := "The local clone is deleted and its Hosts disappear from ~/.ssh/config. The remote repository is left untouched."
 	if force {
-		body = "Des modifications n'ont pas été poussées : elles seront perdues."
+		body = "Some changes were not pushed: they will be lost."
 	}
 	m.dialog = &dialog{
-		title:  "Retirer le dépôt " + src.Name + " ?",
+		title:  "Remove repository " + src.Name + "?",
 		body:   body,
 		danger: true,
 		choices: []choice{
-			{key: "n", label: "non, garder"},
-			{key: "y", label: "oui, retirer", run: func(m *Model) tea.Cmd {
+			{key: "n", label: "no, keep it"},
+			{key: "y", label: "yes, remove", run: func(m *Model) tea.Cmd {
 				err := m.st.RemoveRepo(src.Name, force)
 				if errors.Is(err, store.ErrUnpushed) {
 					m.openRemoveRepoDialog(src, true)
@@ -216,7 +216,7 @@ func (m *Model) openRemoveRepoDialog(src *store.Source, force bool) {
 				delete(m.repos, src.Name)
 				m.reposV.cursor = max(0, m.reposV.cursor-1)
 				m.rebuildRows()
-				return m.notify(toastOK, src.Name+" retiré")
+				return m.notify(toastOK, src.Name+" removed")
 			}},
 		},
 	}
@@ -224,9 +224,9 @@ func (m *Model) openRemoveRepoDialog(src *store.Source, force bool) {
 
 func (m *Model) viewRepos() string {
 	v := m.reposV
-	lines := []string{m.titleBar(sMuted.Render("dépôts")), ""}
-	lines = append(lines, " "+sBold.Render("Ordre d'inclusion dans ~/.ssh/config")+sMuted.Render("  (en ssh, la première valeur gagne)"), "")
-	lines = append(lines, "   "+sMuted.Render("0.")+" "+sBold.Render("local")+"  "+sMuted.Render(m.st.Paths.LocalConf()+" · surcharges perso"))
+	lines := []string{m.titleBar(sMuted.Render("repositories")), ""}
+	lines = append(lines, " "+sBold.Render("Include order in ~/.ssh/config")+sMuted.Render("  (in ssh, the first value wins)"), "")
+	lines = append(lines, "   "+sMuted.Render("0.")+" "+sBold.Render("local")+"  "+sMuted.Render(m.st.Paths.LocalConf()+" · personal overrides"))
 	repos := m.st.Repos()
 	for i, src := range repos {
 		rs := m.repo(src.Name)
@@ -235,7 +235,7 @@ func (m *Model) viewRepos() string {
 		case rs.err != "":
 			state += " " + sErr.Render(firstLine(rs.err))
 		case rs.status.Ahead > 0:
-			state += " " + sWarn.Render("non poussé")
+			state += " " + sWarn.Render("not pushed")
 		}
 		line := fmt.Sprintf("%s %s  %s  %s", sMuted.Render(fmt.Sprintf("%d.", i+1)), sBold.Render(src.Name),
 			sMuted.Render(src.Repo.URL+" ("+src.Repo.Branch+")"), state)
@@ -246,13 +246,13 @@ func (m *Model) viewRepos() string {
 		}
 	}
 	if len(repos) == 0 {
-		lines = append(lines, "", "   "+sMuted.Render("Aucun dépôt. Créez un dépôt git vide (GitHub, GitLab…) puis ajoutez-le avec a."))
+		lines = append(lines, "", "   "+sMuted.Render("No repository. Create an empty git repository (GitHub, GitLab…) then add it with a."))
 	}
-	lines = append(lines, "   "+sMuted.Render(fmt.Sprintf("%d. ~/.ssh/config · le reste, lu en dernier", len(repos)+1)))
+	lines = append(lines, "   "+sMuted.Render(fmt.Sprintf("%d. ~/.ssh/config · everything else, read last", len(repos)+1)))
 
 	if v.adding {
-		lines = append(lines, "", " "+sTitle.Render("Ajouter un dépôt"), "")
-		lbl := []string{"URL git", "Nom", "Branche"}
+		lines = append(lines, "", " "+sTitle.Render("Add a repository"), "")
+		lbl := []string{"Git URL", "Name", "Branch"}
 		for i := range v.inputs {
 			l := fmt.Sprintf("%-10s", lbl[i])
 			if v.focus == i {
@@ -262,18 +262,18 @@ func (m *Model) viewRepos() string {
 			}
 			lines = append(lines, " "+l+v.inputs[i].View())
 		}
-		lines = append(lines, "", " "+sMuted.Render("Un dépôt vide convient : le premier Host enregistré le remplit."))
+		lines = append(lines, "", " "+sMuted.Render("An empty repository is fine: the first saved Host fills it."))
 	}
 	if v.cloning != "" {
-		lines = append(lines, "", " "+sWarn.Render("⟳ clonage de "+v.cloning+"…"))
+		lines = append(lines, "", " "+sWarn.Render("⟳ cloning "+v.cloning+"…"))
 	}
 	if v.err != "" {
 		lines = append(lines, "", " "+sErr.Render("✗ "+v.err))
 	}
 
-	help := helpLine("a", "ajouter", "x", "retirer", "K/J", "priorité", "s", "synchroniser", "esc", "retour")
+	help := helpLine("a", "add", "x", "remove", "K/J", "priority", "s", "sync", "esc", "back")
 	if v.adding {
-		help = helpLine("tab", "champ", "enter", "cloner", "esc", "annuler")
+		help = helpLine("tab", "field", "enter", "clone", "esc", "cancel")
 	}
 	return box(lines, m.w, m.h-1) + "\n" + m.footer(help)
 }

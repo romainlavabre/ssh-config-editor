@@ -31,7 +31,7 @@ for arg in "$@"; do
         --dry-run) dry_run=true ;;
         patch | minor | major | [0-9]*) bump="$arg" ;;
         -h | --help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) die "argument inconnu : $arg (patch, minor, major, X.Y.Z ou --dry-run)" ;;
+        *) die "unknown argument: $arg (patch, minor, major, X.Y.Z or --dry-run)" ;;
     esac
 done
 
@@ -47,23 +47,23 @@ run() {
 # ------------------------------------------------------------------- checks
 
 for cmd in git gh docker make; do
-    command -v "$cmd" >/dev/null || die "$cmd est introuvable"
+    command -v "$cmd" >/dev/null || die "$cmd not found"
 done
-gh auth status >/dev/null 2>&1 || die "gh n'est pas connecté : lancez « gh auth login »"
+gh auth status >/dev/null 2>&1 || die "gh is not logged in: run \"gh auth login\""
 
 current=$(git branch --show-current)
-[[ "$current" == "$BRANCH" ]] || die "vous êtes sur « $current » : une version se publie depuis $BRANCH"
+[[ "$current" == "$BRANCH" ]] || die "you are on \"$current\": versions are published from $BRANCH"
 
 if [[ -n "$(git status --porcelain)" ]]; then
     if $dry_run; then
-        warn "des modifications ne sont pas commitées (bloquant hors --dry-run)"
+        warn "there are uncommitted changes (blocking outside --dry-run)"
     else
         git status --short >&2
-        die "des modifications ne sont pas commitées"
+        die "there are uncommitted changes"
     fi
 fi
 
-info "Récupération de $REMOTE…"
+info "Fetching $REMOTE…"
 git fetch --quiet --tags "$REMOTE"
 if git rev-parse --verify --quiet "$REMOTE/$BRANCH" >/dev/null; then
     behind=$(git rev-list --count "HEAD..$REMOTE/$BRANCH")
@@ -72,7 +72,7 @@ else
     behind=0
     ahead=$(git rev-list --count HEAD)
 fi
-(( behind == 0 )) || die "$BRANCH est en retard de $behind commit(s) sur $REMOTE : faites un git pull d'abord"
+(( behind == 0 )) || die "$BRANCH is $behind commit(s) behind $REMOTE: git pull first"
 
 # ------------------------------------------------------------------- version
 
@@ -83,9 +83,9 @@ last=$(git tag --list '[0-9]*' --sort=-v:refname | grep -E "$SEMVER" | head -n 1
 last=${last:-0.0.0}
 if [[ "$bump" =~ ^[0-9] ]]; then
     next="$bump"
-    [[ "$next" =~ $SEMVER ]] || die "version invalide : $next (attendu X.Y.Z, chiffres et points uniquement)"
+    [[ "$next" =~ $SEMVER ]] || die "invalid version: $next (expected X.Y.Z, digits and dots only)"
 else
-    [[ "$last" =~ $SEMVER ]] || die "dernier tag illisible : $last"
+    [[ "$last" =~ $SEMVER ]] || die "cannot parse the latest tag: $last"
     major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
     case "$bump" in
         major) next="$((major + 1)).0.0" ;;
@@ -96,49 +96,49 @@ else
     [[ "$last" == 0.0.0 ]] && next=1.0.0
 fi
 if git rev-parse --verify --quiet "refs/tags/$next" >/dev/null; then
-    die "le tag $next existe déjà"
+    die "tag $next already exists"
 fi
 
 # ------------------------------------------------------------------ summary
 
 echo
-printf '  Version     %s%s%s  (précédente : %s)\n' "$BOLD" "$next" "$RESET" "$last"
+printf '  Version     %s%s%s  (previous: %s)\n' "$BOLD" "$next" "$RESET" "$last"
 printf '  Commit      %s\n' "$(git log -1 --format='%h %s')"
-(( ahead > 0 )) && printf '  À pousser   %d commit(s) sur %s/%s\n' "$ahead" "$REMOTE" "$BRANCH"
+(( ahead > 0 )) && printf '  To push     %d commit(s) to %s/%s\n' "$ahead" "$REMOTE" "$BRANCH"
 if [[ "$last" != 0.0.0 ]]; then
-    printf '  Changements depuis %s :\n' "$last"
+    printf '  Changes since %s:\n' "$last"
     git log --format='    - %s' "$last..HEAD" | head -n 20
 fi
 echo
 
 if ! $dry_run; then
-    read -r -p "Tester, taguer, pousser et publier $next ? [o/N] " answer
-    [[ "$answer" =~ ^[oOyY]$ ]] || die "annulé"
+    read -r -p "Test, tag, push and publish $next? [y/N] " answer
+    [[ "$answer" =~ ^[yY]$ ]] || die "cancelled"
 fi
 
 # ---------------------------------------------------------------- publish
 
-info "Tests…"
+info "Running tests…"
 run make test
 
-info "Tag $next…"
+info "Tagging $next…"
 run git tag -a "$next" -m "ssh-config-editor $next"
 
-info "Push de $BRANCH et $next…"
+info "Pushing $BRANCH and $next…"
 if ! run git push --atomic "$REMOTE" "$BRANCH" "refs/tags/$next"; then
     run git tag -d "$next"
-    die "push refusé : le tag local a été supprimé, rien n'est publié"
+    die "push rejected: the local tag was deleted, nothing is published"
 fi
 
-info "Release GitHub…"
-run make publish VERSION="$next" || die "le tag est poussé mais la release a échoué : relancez « make publish VERSION=$next »"
+info "Creating the GitHub release…"
+run make publish VERSION="$next" || die "the tag is pushed but the release failed: rerun \"make publish VERSION=$next\""
 
 echo
 if $dry_run; then
-    ok "dry-run terminé : rien n'a été modifié"
+    ok "dry-run done: nothing was changed"
 else
-    ok "$next publiée : $(gh release view "$next" --json url --jq .url)"
+    ok "$next published: $(gh release view "$next" --json url --jq .url)"
     echo
-    echo "  Installation / mise à jour :"
+    echo "  Install / update:"
     echo "  curl -fsSL https://raw.githubusercontent.com/$(gh repo view --json nameWithOwner --jq .nameWithOwner)/$BRANCH/install.sh | sh"
 fi

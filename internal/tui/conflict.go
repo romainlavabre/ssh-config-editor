@@ -76,7 +76,7 @@ func (m *Model) updateConflict(k tea.KeyMsg) tea.Cmd {
 	switch k.String() {
 	case "esc", "q":
 		m.screen = scrMain
-		return m.notify(toastWarn, "conflit sur "+v.repo+" en attente : rien n'est poussé · C pour reprendre")
+		return m.notify(toastWarn, "conflict on "+v.repo+" pending: nothing is pushed · press C to resume")
 	case "left", "h", "p", "shift+tab":
 		v.cur = (v.cur - 1 + len(v.items)) % len(v.items)
 	case "right", "l", "n", "tab":
@@ -102,19 +102,19 @@ func (m *Model) updateConflict(k tea.KeyMsg) tea.Cmd {
 		for i, x := range v.items {
 			if !x.c.Resolved {
 				v.cur = i
-				v.err = "tranchez tous les Host avant d'appliquer"
+				v.err = "resolve every Host before applying"
 				return nil
 			}
 		}
 		return m.applyResolution()
 	case "a":
 		m.dialog = &dialog{
-			title:  "Abandonner la fusion ?",
-			body:   "Le dépôt revient à votre version, vos commits restent à pousser. La fusion sera retentée à la prochaine synchronisation.",
+			title:  "Abort the merge?",
+			body:   "The repository goes back to your version, your commits remain to be pushed. The merge will be retried on the next sync.",
 			danger: true,
 			choices: []choice{
-				{key: "n", label: "non"},
-				{key: "y", label: "oui, abandonner", run: func(m *Model) tea.Cmd {
+				{key: "n", label: "no"},
+				{key: "y", label: "yes, abort", run: func(m *Model) tea.Cmd {
 					src := m.st.Source(v.repo)
 					if err := src.Git().AbortMerge(); err != nil {
 						return m.notify(toastErr, err.Error())
@@ -122,7 +122,7 @@ func (m *Model) updateConflict(k tea.KeyMsg) tea.Cmd {
 					m.repo(v.repo).conflicts = nil
 					m.screen = scrMain
 					m.reload()
-					return m.notify(toastWarn, "fusion abandonnée · "+v.repo+" reste à pousser")
+					return m.notify(toastWarn, "merge aborted · "+v.repo+" remains to be pushed")
 				}},
 			},
 		}
@@ -146,7 +146,7 @@ func (m *Model) applyResolution() tea.Cmd {
 	v := m.conflict
 	src := m.st.Source(v.repo)
 	if src == nil {
-		return m.notify(toastErr, "dépôt introuvable : "+v.repo)
+		return m.notify(toastErr, "repository not found: "+v.repo)
 	}
 	rs := m.repo(v.repo)
 	rs.conflicts = nil
@@ -154,7 +154,7 @@ func (m *Model) applyResolution() tea.Cmd {
 	m.screen = scrMain
 	g, files, name := src.Git(), v.files, v.repo
 	return tea.Batch(
-		m.notify(toastInfo, "résolution appliquée · envoi…"),
+		m.notify(toastInfo, "resolution applied · pushing…"),
 		func() tea.Msg {
 			if err := g.Resolve(files); err != nil {
 				status, _ := g.Status()
@@ -178,17 +178,17 @@ func (m *Model) viewConflict() string {
 		}
 	}
 	lines := []string{
-		m.titleBar(sErr.Render(fmt.Sprintf("conflit sur %s · %d/%d tranché(s)", v.repo, resolved, len(v.items)))),
+		m.titleBar(sErr.Render(fmt.Sprintf("conflict on %s · %d/%d resolved", v.repo, resolved, len(v.items)))),
 		"",
 		fmt.Sprintf(" %s %s  %s", sWarn.Render("!"), sBold.Render(it.c.Name()), sMuted.Render(fmt.Sprintf("%s · Host %d/%d", fc.Path, v.cur+1, len(v.items)))),
-		" " + sMuted.Render("Vous et un collègue avez modifié ce Host chacun de votre côté. Rien n'est poussé tant que ce n'est pas tranché."),
+		" " + sMuted.Render("You and a teammate both changed this Host. Nothing is pushed until it is resolved."),
 		"",
 	}
 
 	if v.editing {
-		lines = append(lines, " "+sBold.Render("Version finale")+sMuted.Render("  (vide = supprimer le Host)"))
+		lines = append(lines, " "+sBold.Render("Final version")+sMuted.Render("  (empty = delete the Host)"))
 		lines = append(lines, strings.Split(lipgloss.NewStyle().PaddingLeft(1).Render(v.editor.View()), "\n")...)
-		help := helpLine("ctrl+s", "retenir cette version", "esc", "annuler l'édition")
+		help := helpLine("ctrl+s", "keep this version", "esc", "cancel editing")
 		return box(lines, m.w, m.h-1) + "\n" + m.footer(help)
 	}
 
@@ -199,38 +199,38 @@ func (m *Model) viewConflict() string {
 	oursFocus := it.c.Resolved && it.c.Result == it.c.Ours
 	theirsFocus := it.c.Resolved && it.c.Result == it.c.Theirs
 	cols := lipgloss.JoinHorizontal(lipgloss.Top,
-		pane("Ma version (m)", ours, colW, colH, oursFocus),
+		pane("My version (m)", ours, colW, colH, oursFocus),
 		" ",
-		pane("Leur version (t)", theirs, colW, colH, theirsFocus),
+		pane("Their version (t)", theirs, colW, colH, theirsFocus),
 	)
 	lines = append(lines, strings.Split(lipgloss.NewStyle().PaddingLeft(1).Render(cols), "\n")...)
 
-	state := sMuted.Render("en attente")
+	state := sMuted.Render("pending")
 	if it.c.Resolved {
 		switch it.c.Result {
 		case it.c.Ours:
-			state = sOK.Render("✓ ma version")
+			state = sOK.Render("✓ my version")
 		case it.c.Theirs:
-			state = sOK.Render("✓ leur version")
+			state = sOK.Render("✓ their version")
 		default:
-			state = sOK.Render("✓ version éditée")
+			state = sOK.Render("✓ edited version")
 			if !it.c.Result.Present {
-				state = sOK.Render("✓ supprimé")
+				state = sOK.Render("✓ deleted")
 			}
 		}
 	}
-	lines = append(lines, " Choix : "+state)
+	lines = append(lines, " Choice: "+state)
 	if v.err != "" {
 		lines = append(lines, " "+sErr.Render("✗ "+v.err))
 	}
-	help := helpLine("m", "la mienne", "t", "la leur", "e", "éditer", "←/→", "Host", "enter", "appliquer et pousser", "a", "abandonner", "esc", "plus tard")
+	help := helpLine("m", "mine", "t", "theirs", "e", "edit", "←/→", "Host", "enter", "apply and push", "a", "abort", "esc", "later")
 	return box(lines, m.w, m.h-1) + "\n" + m.footer(help)
 }
 
 // sideLines highlights the lines missing from the other version.
 func sideLines(s, other sshconfig.Side) []string {
 	if !s.Present {
-		return []string{sMuted.Render("(Host supprimé de ce côté)")}
+		return []string{sMuted.Render("(Host deleted on this side)")}
 	}
 	seen := map[string]bool{}
 	for _, l := range strings.Split(other.Text, "\n") {

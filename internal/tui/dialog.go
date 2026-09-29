@@ -74,7 +74,7 @@ func (d *dialog) view(w, h int) string {
 			lines = append(lines, "  "+label)
 		}
 	}
-	lines = append(lines, "", helpLine("↑↓", "choisir", "enter", "valider", "esc", "annuler"))
+	lines = append(lines, "", helpLine("↑↓", "choose", "enter", "confirm", "esc", "cancel"))
 	st := sDialog
 	if d.danger {
 		st = st.BorderForeground(cErr)

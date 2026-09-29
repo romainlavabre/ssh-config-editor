@@ -139,7 +139,7 @@ type (
 func newModel(st *store.Store) *Model {
 	f := textinput.New()
 	f.Prompt = "/ "
-	f.Placeholder = "filtrer (nom, IP, user)"
+	f.Placeholder = "filter (name, IP, user)"
 	m := &Model{
 		st:        st,
 		filter:    f,
@@ -186,7 +186,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case execDoneMsg:
 		var ee *exec.ExitError
 		if errors.As(msg.err, &ee) && ee.ExitCode() == 255 {
-			return m, m.notify(toastErr, "connexion à "+msg.host+" impossible (code 255)")
+			return m, m.notify(toastErr, "cannot connect to "+msg.host+" (exit code 255)")
 		} else if msg.err != nil && !errors.As(msg.err, &ee) {
 			return m, m.notify(toastErr, msg.err.Error())
 		}
@@ -326,7 +326,7 @@ func (m *Model) onSyncDone(msg syncDoneMsg) tea.Cmd {
 	case msg.err != nil:
 		rs.err = msg.err.Error()
 	case msg.res.Offline:
-		rs.err = "hors ligne : " + firstLine(msg.res.Warning)
+		rs.err = "offline: " + firstLine(msg.res.Warning)
 	default:
 		rs.err = ""
 	}
@@ -338,7 +338,7 @@ func (m *Model) onSyncDone(msg syncDoneMsg) tea.Cmd {
 		if m.screen == scrMain && m.dialog == nil {
 			m.openConflict(msg.repo)
 		} else if m.screen != scrConflict {
-			cmds = append(cmds, m.notify(toastWarn, "conflit sur "+msg.repo+" : touche C pour le résoudre"))
+			cmds = append(cmds, m.notify(toastWarn, "conflict on "+msg.repo+": press C to resolve it"))
 		}
 	} else if rs.again {
 		rs.again = false
@@ -514,7 +514,7 @@ func (m *Model) updateMain(k tea.KeyMsg) tea.Cmd {
 	case "q":
 		if m.anySyncing() {
 			m.quitting = true
-			return m.notify(toastInfo, "fin de la synchronisation avant de quitter…")
+			return m.notify(toastInfo, "finishing sync before quitting…")
 		}
 		return tea.Quit
 	case "up", "k":
@@ -586,9 +586,9 @@ func (m *Model) updateMain(k tea.KeyMsg) tea.Cmd {
 		}
 	case "r":
 		if len(m.st.Repos()) == 0 {
-			return m.notify(toastInfo, "aucun dépôt : R pour en ajouter un")
+			return m.notify(toastInfo, "no repository: press R to add one")
 		}
-		return tea.Batch(m.syncAll(), m.notify(toastInfo, "synchronisation de tous les dépôts…"))
+		return tea.Batch(m.syncAll(), m.notify(toastInfo, "syncing all repositories…"))
 	case "R":
 		m.openRepos()
 	case "I":
@@ -600,7 +600,7 @@ func (m *Model) updateMain(k tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 		}
-		return m.notify(toastInfo, "aucun conflit en attente")
+		return m.notify(toastInfo, "no pending conflict")
 	case "?":
 		m.screen = scrHelp
 	}
@@ -618,7 +618,7 @@ func (m *Model) toggle(src *store.Source) {
 
 func (m *Model) connect(h *store.Host) tea.Cmd {
 	if !h.Block.IsConcrete() {
-		return m.notify(toastInfo, h.Name+" est un motif, pas un serveur")
+		return m.notify(toastInfo, h.Name+" is a pattern, not a server")
 	}
 	c := exec.Command("ssh", "-F", m.st.Paths.SSHConfig, h.Name)
 	name := h.Name
@@ -630,7 +630,7 @@ func commitMessage(verb, host string) string {
 }
 
 func (m *Model) openMoveDialog(h *store.Host) {
-	d := &dialog{title: "Déplacer " + h.Name, body: "Vers quelle source ? Le bloc est déplacé tel quel, commentaires compris."}
+	d := &dialog{title: "Move " + h.Name, body: "To which source? The block is moved as is, comments included."}
 	for _, src := range m.st.Sources {
 		if src == h.Source {
 			continue
@@ -653,12 +653,12 @@ func (m *Model) openMoveDialog(h *store.Host) {
 			newPath, _ := m.st.TargetPath(store.Target{Source: src, File: moveFile(h)})
 			m.selectHost(newPath, h.Name)
 			return tea.Batch(
-				m.notify(toastOK, fmt.Sprintf("%s déplacé vers %s", h.Name, src.Label())),
-				m.syncTouched(touched, commitMessage("déplace", h.Name)),
+				m.notify(toastOK, fmt.Sprintf("%s moved to %s", h.Name, src.Label())),
+				m.syncTouched(touched, commitMessage("move", h.Name)),
 			)
 		}})
 	}
-	d.choices = append(d.choices, choice{label: sMuted.Render("annuler")})
+	d.choices = append(d.choices, choice{label: sMuted.Render("cancel")})
 	m.dialog = d
 }
 
@@ -682,23 +682,23 @@ func appendSource(list []*store.Source, src *store.Source) []*store.Source {
 func (m *Model) openDeleteDialog(h *store.Host) {
 	where := h.Source.Label()
 	if h.Source.Kind == store.KindRepo {
-		where += " (" + h.File() + ", partagé : supprimé aussi chez les autres)"
+		where += " (" + h.File() + ", shared: deleted for everyone else too)"
 	}
 	m.dialog = &dialog{
-		title:  "Supprimer " + h.Name + " ?",
-		body:   "Défini dans " + where + ".",
+		title:  "Delete " + h.Name + "?",
+		body:   "Defined in " + where + ".",
 		danger: true,
 		choices: []choice{
-			{label: "non, garder", key: "n"},
-			{label: "oui, supprimer", key: "y", run: func(m *Model) tea.Cmd {
+			{label: "no, keep it", key: "n"},
+			{label: "yes, delete", key: "y", run: func(m *Model) tea.Cmd {
 				touched, err := m.st.DeleteHost(h)
 				if err != nil {
 					return m.notify(toastErr, err.Error())
 				}
 				m.rebuildRows()
 				return tea.Batch(
-					m.notify(toastOK, h.Name+" supprimé"),
-					m.syncTouched(touched, commitMessage("supprime", h.Name)),
+					m.notify(toastOK, h.Name+" deleted"),
+					m.syncTouched(touched, commitMessage("delete", h.Name)),
 				)
 			}},
 		},
@@ -758,7 +758,7 @@ func (m *Model) footer(help string) string {
 
 func (m *Model) viewMain() string {
 	nRepos := len(m.st.Repos())
-	right := sMuted.Render(fmt.Sprintf("%d %s · %d %s", len(m.st.Hosts), plural(len(m.st.Hosts), "host", "hosts"), nRepos, plural(nRepos, "dépôt", "dépôts")))
+	right := sMuted.Render(fmt.Sprintf("%d %s · %d %s", len(m.st.Hosts), plural(len(m.st.Hosts), "host", "hosts"), nRepos, plural(nRepos, "repository", "repositories")))
 	var parts []string
 	parts = append(parts, m.titleBar(right))
 	if m.filtering || m.filter.Value() != "" {
@@ -779,13 +779,13 @@ func (m *Model) viewMain() string {
 		lines = append(lines, m.renderRow(m.rows[i], i == m.cursor, leftW))
 	}
 	if len(m.rows) == 0 {
-		lines = append(lines, sMuted.Render("aucun Host ne correspond"))
+		lines = append(lines, sMuted.Render("no matching Host"))
 	}
 	left := pane("Hosts", lines, leftW, innerH, true)
 	detail := pane(m.detailTitle(), m.detailLines(rightW), rightW, innerH, false)
 	parts = append(parts, lipgloss.JoinHorizontal(lipgloss.Top, left, detail))
 	parts = append(parts, " "+truncate(m.statusBar(), m.w-2))
-	parts = append(parts, m.footer(helpLine("enter", "connexion", "e", "éditer", "n", "nouveau", "/", "filtrer", "m", "déplacer", "r", "sync", "R", "dépôts", "?", "aide", "q", "quitter")))
+	parts = append(parts, m.footer(helpLine("enter", "connect", "e", "edit", "n", "new", "/", "filter", "m", "move", "r", "sync", "R", "repos", "?", "help", "q", "quit")))
 	return strings.Join(parts, "\n")
 }
 
@@ -805,7 +805,7 @@ func (m *Model) renderRow(r row, selected bool, w int) string {
 		name := r.host.Name
 		switch {
 		case r.host.ShadowedBy != nil:
-			s = "  " + sMuted.Render(name) + " " + sWarn.Render("⚠ masqué")
+			s = "  " + sMuted.Render(name) + " " + sWarn.Render("⚠ shadowed")
 		case !r.host.Block.IsConcrete():
 			s = "  " + sAccent.Render(name)
 		default:
@@ -831,7 +831,7 @@ func (m *Model) repoBadge(name string) string {
 	rs := m.repo(name)
 	switch {
 	case len(rs.conflicts) > 0:
-		return sErr.Render("✗ conflit")
+		return sErr.Render("✗ conflict")
 	case rs.syncing:
 		return sWarn.Render("⟳")
 	case rs.err != "":
@@ -847,7 +847,7 @@ func (m *Model) repoBadge(name string) string {
 func (m *Model) statusBar() string {
 	repos := m.st.Repos()
 	if len(repos) == 0 {
-		return sMuted.Render("aucun dépôt configuré : R pour en ajouter un, I pour importer ~/.ssh/config")
+		return sMuted.Render("no repository configured: R to add one, I to import ~/.ssh/config")
 	}
 	var parts []string
 	for _, src := range repos {
@@ -888,22 +888,22 @@ func (m *Model) detailLines(w int) []string {
 	}
 	lines = append(lines, sMuted.Render(where))
 	if h.ShadowedBy != nil {
-		lines = append(lines, sWarn.Render("⚠ masqué par la définition de "+h.ShadowedBy.Label()+" (la première gagne)"))
+		lines = append(lines, sWarn.Render("⚠ shadowed by the definition in "+h.ShadowedBy.Label()+" (the first one wins)"))
 	} else if h.Duplicated {
-		lines = append(lines, sWarn.Render("⚠ défini aussi ailleurs : cette définition-ci gagne"))
+		lines = append(lines, sWarn.Render("⚠ also defined elsewhere: this definition wins"))
 	}
-	lines = append(lines, "", sBold.Render("Définition"))
+	lines = append(lines, "", sBold.Render("Definition"))
 	for _, l := range strings.Split(h.Block.Text(), "\n") {
 		lines = append(lines, "  "+highlight(l))
 	}
 	if !h.Block.IsConcrete() {
 		return lines
 	}
-	lines = append(lines, "", sBold.Render("Effectif")+sMuted.Render("  ssh -G, tous fichiers confondus"))
+	lines = append(lines, "", sBold.Render("Effective")+sMuted.Render("  ssh -G, all files combined"))
 	e := m.eff[h.Name]
 	switch {
 	case e == nil || e.loading:
-		lines = append(lines, sMuted.Render("  calcul…"))
+		lines = append(lines, sMuted.Render("  computing…"))
 	case e.err != "":
 		lines = append(lines, sErr.Render("  "+firstLine(e.err)))
 	default:
@@ -940,51 +940,51 @@ func (m *Model) sourceDetail(src *store.Source) []string {
 		lines = append(lines,
 			sMuted.Render(m.st.Paths.LocalConf()),
 			"",
-			"Surcharges personnelles, jamais partagées.",
-			"Incluses en premier : elles gagnent sur les dépôts.",
+			"Personal overrides, never shared.",
+			"Included first: they win over the repositories.",
 			"",
-			sMuted.Render("Ex. : un Host fairfair-* avec votre User ou votre IdentityFile."),
+			sMuted.Render("E.g. a Host fairfair-* with your own User or IdentityFile."),
 		)
 	case store.KindMain:
 		lines = append(lines,
 			sMuted.Render(m.st.Paths.SSHConfig),
 			"",
-			"Ce qui reste hors dépôts, lu en dernier.",
-			sMuted.Render("I pour ranger ces Host dans un dépôt ou dans local."),
+			"What is left outside the repositories, read last.",
+			sMuted.Render("I to move these Hosts into a repository or into local."),
 		)
 	case store.KindRepo:
 		rs := m.repo(src.Name)
 		lines = append(lines, sMuted.Render(src.Repo.URL+" ("+src.Repo.Branch+")"), "")
 		switch {
 		case len(rs.conflicts) > 0:
-			lines = append(lines, sErr.Render("✗ conflit en attente : touche C"))
+			lines = append(lines, sErr.Render("✗ pending conflict: press C"))
 		case rs.syncing:
-			lines = append(lines, sWarn.Render("⟳ synchronisation…"))
+			lines = append(lines, sWarn.Render("⟳ syncing…"))
 		case rs.err != "":
 			lines = append(lines, sErr.Render("✗ "+rs.err))
 		case rs.status.Ahead > 0:
-			lines = append(lines, sWarn.Render(fmt.Sprintf("↑ %d commit(s) à pousser", rs.status.Ahead)))
+			lines = append(lines, sWarn.Render(fmt.Sprintf("↑ %d commit(s) to push", rs.status.Ahead)))
 		default:
-			lines = append(lines, sOK.Render("✓ à jour"))
+			lines = append(lines, sOK.Render("✓ up to date"))
 		}
 		files := m.st.ConfFiles(src)
 		sort.Strings(files)
-		lines = append(lines, "", sBold.Render("Fichiers"))
+		lines = append(lines, "", sBold.Render("Files"))
 		for _, f := range files {
 			lines = append(lines, "  "+f)
 		}
 	}
-	lines = append(lines, "", sMuted.Render(fmt.Sprintf("%d %s · n pour en ajouter un ici", n, plural(n, "Host", "Host"))))
+	lines = append(lines, "", sMuted.Render(fmt.Sprintf("%d %s · n to add one here", n, plural(n, "Host", "Hosts"))))
 	return lines
 }
 
 func (m *Model) onboarding() []string {
 	return []string{
-		sBold.Render("Bienvenue"),
+		sBold.Render("Welcome"),
 		"",
-		"1. " + sKey.Render("R") + " ajoute un dépôt git partagé",
-		"2. " + sKey.Render("I") + " range vos Host actuels dans les dépôts",
-		"3. " + sKey.Render("n") + " crée un Host : il est poussé tout seul",
+		"1. " + sKey.Render("R") + " adds a shared git repository",
+		"2. " + sKey.Render("I") + " moves your current Hosts into the repositories",
+		"3. " + sKey.Render("n") + " creates a Host: it is pushed automatically",
 	}
 }
 
@@ -993,13 +993,13 @@ func (m *Model) viewHelp() string {
 		title string
 		keys  []string
 	}{
-		{"Navigation", []string{"↑/↓ j/k", "se déplacer", "←/→ h/l", "replier / déplier un groupe", "/", "filtrer (nom, IP, user)", "esc", "effacer le filtre"}},
-		{"Host", []string{"enter", "se connecter", "n", "nouveau Host", "e", "éditer", "c", "dupliquer", "m", "déplacer vers une autre source", "x", "supprimer"}},
-		{"Synchronisation", []string{"r", "synchroniser tous les dépôts", "R", "gérer les dépôts", "I", "importer ~/.ssh/config", "C", "résoudre un conflit"}},
-		{"Formulaire", []string{"tab / ↑↓", "champ suivant / précédent", "→", "accepter la suggestion", "←/→", "changer de destination", "ctrl+s", "enregistrer", "esc", "annuler"}},
+		{"Navigation", []string{"↑/↓ j/k", "move", "←/→ h/l", "collapse / expand a group", "/", "filter (name, IP, user)", "esc", "clear the filter"}},
+		{"Host", []string{"enter", "connect", "n", "new Host", "e", "edit", "c", "duplicate", "m", "move to another source", "x", "delete"}},
+		{"Sync", []string{"r", "sync all repositories", "R", "manage repositories", "I", "import ~/.ssh/config", "C", "resolve a conflict"}},
+		{"Form", []string{"tab / ↑↓", "next / previous field", "→", "accept the suggestion", "←/→", "change destination", "ctrl+s", "save", "esc", "cancel"}},
 	}
 	var lines []string
-	lines = append(lines, m.titleBar(sMuted.Render("aide")), "")
+	lines = append(lines, m.titleBar(sMuted.Render("help")), "")
 	for _, s := range sections {
 		lines = append(lines, "  "+sBold.Render(s.title))
 		for i := 0; i+1 < len(s.keys); i += 2 {
@@ -1008,13 +1008,13 @@ func (m *Model) viewHelp() string {
 		lines = append(lines, "")
 	}
 	lines = append(lines,
-		"  "+sBold.Render("Comment ça marche"),
-		"    ~/.ssh/config commence par un bloc d'Include géré par l'outil : local.conf,",
-		"    puis chaque dépôt dans l'ordre de priorité. En ssh, la première valeur gagne.",
-		"    Chaque modification est commitée, fusionnée Host par Host avec le distant,",
-		"    puis poussée. Un même Host modifié des deux côtés ouvre l'écran de conflit.",
+		"  "+sBold.Render("How it works"),
+		"    ~/.ssh/config starts with an Include block managed by the tool: local.conf,",
+		"    then each repository in priority order. In ssh, the first value wins.",
+		"    Every change is committed, merged Host by Host with the remote, then pushed.",
+		"    The same Host changed on both sides opens the conflict screen.",
 		"",
-		"  "+sMuted.Render("une touche pour revenir"),
+		"  "+sMuted.Render("press any key to go back"),
 	)
 	return box(lines, m.w, m.h)
 }

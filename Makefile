@@ -10,10 +10,13 @@ DOCKER := docker run --rm \
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: build dist release publish test vet fmt tidy clean
+.PHONY: build run dist release publish test vet fmt tidy clean
 
 build: ## linux/amd64 binary in dist/
 	$(DOCKER) go build -trimpath -ldflags '$(LDFLAGS)' -o dist/ssh-config-editor ./cmd/ssh-config-editor
+
+run: ## current checkout against a copy of ~/.ssh, in a container (ARGS="ls", ARGS="--keep"…)
+	./run.sh $(ARGS)
 
 dist: ## one binary per platform in PLATFORMS
 	$(DOCKER) sh -c 'set -e; for p in $(PLATFORMS); do \

@@ -36,7 +36,7 @@ const (
 	fieldCount
 )
 
-// Directives edited in a dedicated field; everything else goes to "Autres options".
+// Directives edited in a dedicated field; everything else goes to "Other options".
 var mainKeys = map[int]string{
 	fHostName: "HostName",
 	fUser:     "User",
@@ -53,8 +53,8 @@ var labels = map[int]string{
 	fIdentity: "IdentityFile",
 	fProxy:    "ProxyJump",
 	fDest:     "Destination",
-	fFile:     "Fichier",
-	fExtra:    "Autres options",
+	fFile:     "File",
+	fExtra:    "Other options",
 }
 
 type hostForm struct {
@@ -82,7 +82,7 @@ func (m *Model) openForm(mode formMode, h *store.Host, near *store.Source) {
 
 	placeholders := map[int]string{
 		fAlias:    "mon-serveur",
-		fHostName: "10.0.0.1 ou nom DNS",
+		fHostName: "10.0.0.1 or DNS name",
 		fUser:     "ubuntu",
 		fPort:     "22",
 		fIdentity: "~/.ssh/id_ed25519",
@@ -136,7 +136,7 @@ func (m *Model) openForm(mode formMode, h *store.Host, near *store.Source) {
 	if h != nil {
 		name := h.Name
 		if mode == formDuplicate {
-			name += "-copie"
+			name += "-copy"
 		}
 		f.inputs[fAlias].SetValue(name)
 		var extra []string
@@ -326,13 +326,13 @@ func (m *Model) saveForm() tea.Cmd {
 	f := m.form
 	alias := strings.TrimSpace(f.inputs[fAlias].Value())
 	if alias == "" {
-		f.err = "l'alias est obligatoire"
+		f.err = "the alias is required"
 		f.focus = fAlias
 		return f.focusCmd()
 	}
 	if p := strings.TrimSpace(f.inputs[fPort].Value()); p != "" {
 		if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 {
-			f.err = "le port doit être un nombre entre 1 et 65535"
+			f.err = "the port must be a number between 1 and 65535"
 			f.focus = fPort
 			return f.focusCmd()
 		}
@@ -349,12 +349,12 @@ func (m *Model) saveForm() tea.Cmd {
 			continue
 		}
 		if val == "" {
-			f.err = fmt.Sprintf("autres options, ligne %d : valeur manquante pour %s", n+1, key)
+			f.err = fmt.Sprintf("other options, line %d: missing value for %s", n+1, key)
 			f.focus = fExtra
 			return f.focusCmd()
 		}
 		if strings.EqualFold(key, "host") || strings.EqualFold(key, "match") {
-			f.err = fmt.Sprintf("autres options, ligne %d : %s ouvrirait un nouveau bloc", n+1, key)
+			f.err = fmt.Sprintf("other options, line %d: %s would open a new block", n+1, key)
 			f.focus = fExtra
 			return f.focusCmd()
 		}
@@ -374,9 +374,9 @@ func (m *Model) saveForm() tea.Cmd {
 	if oldSource != nil && oldSource != target.Source && oldSource.Kind == store.KindRepo {
 		touched = appendSource(touched, oldSource)
 	}
-	verb := "ajoute"
+	verb := "add"
 	if f.mode == formEdit {
-		verb = "modifie"
+		verb = "update"
 	}
 	m.form = nil
 	m.screen = scrMain
@@ -384,20 +384,20 @@ func (m *Model) saveForm() tea.Cmd {
 	path, _ := m.st.TargetPath(target)
 	m.selectHost(path, strings.Join(strings.Fields(alias), " "))
 
-	text := alias + " enregistré"
+	text := alias + " saved"
 	if len(touched) > 0 {
-		text += " · synchronisation…"
+		text += " · syncing…"
 	}
 	return tea.Batch(m.notify(toastOK, text), m.syncTouched(touched, commitMessage(verb, alias)), m.loadEffective())
 }
 
 func (f *hostForm) view(m *Model) string {
-	title := "Nouveau Host"
+	title := "New Host"
 	switch f.mode {
 	case formEdit:
-		title = "Modifier " + f.old.Name
+		title = "Edit " + f.old.Name
 	case formDuplicate:
-		title = "Dupliquer"
+		title = "Duplicate"
 	}
 	lines := []string{m.titleBar(sMuted.Render(title)), ""}
 
@@ -418,19 +418,19 @@ func (f *hostForm) view(m *Model) string {
 		dest = sAccent.Render("‹ ") + sBold.Render(src.Label()) + sAccent.Render(" ›")
 	}
 	hint := map[store.Kind]string{
-		store.KindLocal: "perso, jamais partagé",
-		store.KindRepo:  "partagé via git",
-		store.KindMain:  "~/.ssh/config, non partagé",
+		store.KindLocal: "personal, never shared",
+		store.KindRepo:  "shared through git",
+		store.KindMain:  "~/.ssh/config, not shared",
 	}[src.Kind]
 	lines = append(lines, "", " "+label(fDest)+dest+"  "+sMuted.Render(hint))
 	if src.Kind == store.KindRepo {
 		files := f.st.ConfFiles(src)
 		lines = append(lines, " "+label(fFile)+f.file.View())
 		if len(files) > 0 {
-			lines = append(lines, " "+strings.Repeat(" ", labelW+2)+sMuted.Render(truncate("existants : "+strings.Join(files, ", "), max(10, m.w-labelW-6))))
+			lines = append(lines, " "+strings.Repeat(" ", labelW+2)+sMuted.Render(truncate("existing: "+strings.Join(files, ", "), max(10, m.w-labelW-6))))
 		}
 	}
-	lines = append(lines, "", " "+label(fExtra)+sMuted.Render("une directive par ligne"))
+	lines = append(lines, "", " "+label(fExtra)+sMuted.Render("one directive per line"))
 	extra := lipgloss.NewStyle().PaddingLeft(labelW + 3).Render(f.extra.View())
 	lines = append(lines, strings.Split(extra, "\n")...)
 
@@ -438,6 +438,6 @@ func (f *hostForm) view(m *Model) string {
 		lines = append(lines, "", " "+sErr.Render("✗ "+f.err))
 	}
 	body := box(lines, m.w, m.h-1)
-	help := helpLine("tab/↑↓", "champ", "→", "compléter", "←/→", "destination", "ctrl+s", "enregistrer et pousser", "esc", "annuler")
+	help := helpLine("tab/↑↓", "field", "→", "complete", "←/→", "destination", "ctrl+s", "save and push", "esc", "cancel")
 	return body + "\n" + m.footer(help)
 }

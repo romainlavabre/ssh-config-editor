@@ -24,7 +24,7 @@ type Conflict struct {
 // Name returns the display name of the conflicting block.
 func (c *Conflict) Name() string {
 	if c.Key == "" {
-		return "(préambule)"
+		return "(preamble)"
 	}
 	if name, ok := strings.CutPrefix(c.Key, "host "); ok {
 		return name
@@ -106,7 +106,7 @@ func (m *Merge) Render() (string, error) {
 		s, ok := m.texts[k]
 		if c := m.conflicts[k]; c != nil {
 			if !c.Resolved {
-				return "", fmt.Errorf("conflit non résolu sur %s", c.Name())
+				return "", fmt.Errorf("unresolved conflict on %s", c.Name())
 			}
 			s, ok = c.Result, true
 		}

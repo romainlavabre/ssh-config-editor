@@ -86,7 +86,7 @@ func (s *Store) Import(assign map[string]*Source) (string, []*Source, error) {
 				continue
 			}
 			if f.Find(h.Name) != nil {
-				return "", nil, fmt.Errorf("%s existe déjà dans %s", h.Name, filepath.Base(path))
+				return "", nil, fmt.Errorf("%s already exists in %s", h.Name, filepath.Base(path))
 			}
 			f.Append(b.Clone())
 			mainF.Remove(b)
@@ -94,11 +94,11 @@ func (s *Store) Import(assign map[string]*Source) (string, []*Source, error) {
 		}
 	}
 	if moved == 0 {
-		return "", nil, errors.New("aucun Host à déplacer : choisissez une destination pour au moins un groupe")
+		return "", nil, errors.New("no Host to move: choose a destination for at least one group")
 	}
 	backup := s.Paths.SSHConfig + ".ssh-config-editor-bak-" + time.Now().Format("20060102-150405")
 	if err := os.WriteFile(backup, []byte(s.mainRaw), 0o600); err != nil {
-		return "", nil, fmt.Errorf("sauvegarde de ~/.ssh/config impossible : %w", err)
+		return "", nil, fmt.Errorf("cannot back up ~/.ssh/config: %w", err)
 	}
 	touched, err := s.writeAll(changed)
 	return backup, touched, err

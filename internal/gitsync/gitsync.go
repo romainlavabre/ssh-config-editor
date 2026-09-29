@@ -59,7 +59,7 @@ func (e *GitError) Error() string {
 	if msg == "" {
 		msg = e.Err.Error()
 	}
-	return fmt.Sprintf("git %s : %s", e.Args[0], msg)
+	return fmt.Sprintf("git %s: %s", e.Args[0], msg)
 }
 
 func (e *GitError) Unwrap() error { return e.Err }
@@ -230,7 +230,7 @@ func (r Repo) Sync(message string) (Result, error) {
 			return Result{Offline: true, Warning: err.Error()}, nil
 		}
 	}
-	return Result{}, errors.New("push refusé trois fois de suite : le dépôt bouge trop vite, réessayez")
+	return Result{}, errors.New("push rejected three times in a row: the repository is moving too fast, try again")
 }
 
 func isRejected(err error) bool {
@@ -367,7 +367,7 @@ func (r Repo) Resolve(files []FileConflict) error {
 		return err
 	}
 	if len(left) > 0 {
-		return fmt.Errorf("fichiers encore en conflit : %s", strings.Join(left, ", "))
+		return fmt.Errorf("files still in conflict: %s", strings.Join(left, ", "))
 	}
 	_, err = r.commit("--no-edit")
 	return err
@@ -387,7 +387,7 @@ func (r Repo) commitAll(message string) error {
 		return nil
 	}
 	if message == "" {
-		message = "ssh-config-editor: modifications locales"
+		message = "ssh-config-editor: local changes"
 	}
 	_, err := r.commit("-m", message)
 	return err

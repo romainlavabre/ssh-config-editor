@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	beginMarker = "# >>> ssh-config-editor (généré, ne pas éditer) >>>"
+	beginMarker = "# >>> ssh-config-editor (generated, do not edit) >>>"
 	endMarker   = "# <<< ssh-config-editor <<<"
 )
 
@@ -86,7 +86,7 @@ func Validate(content string) error {
 	out, err := exec.Command(sshBin, "-F", tmp.Name(), "-G", "ssh-config-editor-probe").CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(strings.ReplaceAll(string(out), tmp.Name(), "config"))
-		return fmt.Errorf("ssh refuse cette configuration : %s", msg)
+		return fmt.Errorf("ssh rejects this configuration: %s", msg)
 	}
 	return nil
 }

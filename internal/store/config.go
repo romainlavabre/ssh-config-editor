@@ -69,10 +69,10 @@ var repoName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // ValidateRepoName rejects names that would not make a safe directory name.
 func ValidateRepoName(name string) error {
 	if !repoName.MatchString(name) {
-		return fmt.Errorf("nom de dépôt invalide %q : lettres, chiffres, . _ - uniquement", name)
+		return fmt.Errorf("invalid repository name %q: letters, digits, . _ - only", name)
 	}
 	if name == "local" {
-		return errors.New(`"local" est réservé aux surcharges personnelles`)
+		return errors.New(`"local" is reserved for personal overrides`)
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func ValidateRepoName(name string) error {
 func LoadConfig(p Paths) (*Config, error) {
 	c := &Config{}
 	if _, err := toml.DecodeFile(p.ConfigFile(), c); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("lecture de %s : %w", p.ConfigFile(), err)
+		return nil, fmt.Errorf("reading %s: %w", p.ConfigFile(), err)
 	}
 	for i := range c.Repos {
 		if c.Repos[i].Branch == "" {
@@ -101,7 +101,7 @@ func SaveConfig(p Paths, c *Config) error {
 	if err != nil {
 		return err
 	}
-	if _, err := f.WriteString("# Dépôts de configurations ssh, par ordre de priorité (le premier gagne).\n"); err != nil {
+	if _, err := f.WriteString("# ssh configuration repositories, by priority (the first one wins).\n"); err != nil {
 		f.Close()
 		return err
 	}

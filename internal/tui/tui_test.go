@@ -90,7 +90,7 @@ func (d *driver) run(cmd tea.Cmd) {
 	select {
 	case msg = <-ch:
 	case <-time.After(30 * time.Second):
-		d.t.Fatal("commande bloquée")
+		d.t.Fatal("command stuck")
 	}
 	switch msg := msg.(type) {
 	case tea.BatchMsg:
@@ -123,7 +123,7 @@ func (d *driver) keys(keys ...string) {
 func (d *driver) addRepo(url string) {
 	d.keys("R", "a", url, "enter", "enter", "enter")
 	if d.m.reposV.err != "" {
-		d.t.Fatalf("ajout du dépôt : %s", d.m.reposV.err)
+		d.t.Fatalf("adding the repository: %s", d.m.reposV.err)
 	}
 	d.keys("esc")
 }
@@ -134,7 +134,7 @@ func (d *driver) host(name string) *store.Host {
 			return h
 		}
 	}
-	d.t.Fatalf("%s absent des dépôts", name)
+	d.t.Fatalf("%s missing from the repositories", name)
 	return nil
 }
 
@@ -143,7 +143,7 @@ func (d *driver) setHostName(name, ip string) {
 	d.m.selectHost(h.Path, h.Name)
 	d.keys("e", "tab", "ctrl+e", "ctrl+u", ip, "ctrl+s")
 	if d.m.form != nil {
-		d.t.Fatalf("formulaire resté ouvert : %s", d.m.form.err)
+		d.t.Fatalf("form still open: %s", d.m.form.err)
 	}
 }
 
@@ -164,7 +164,7 @@ func (d *driver) chooseImport(group, dest string) {
 		}
 		return
 	}
-	d.t.Fatalf("groupe %s absent de l'import", group)
+	d.t.Fatalf("group %s missing from the import", group)
 }
 
 func (d *driver) file(path string) string {
@@ -188,82 +188,86 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 
 	// Alice adds the repository and imports her existing config into it.
 	alice := newDriver(t, filepath.Join(root, "alice"), aliceConfig)
-	t.Logf("accueil d'Alice :\n%s", alice.m.View())
+	t.Logf("Alice's welcome screen:\n%s", alice.m.View())
 	alice.addRepo(remote)
 	if alice.m.st.Source("team") == nil {
-		t.Fatal("dépôt team non ajouté")
+		t.Fatal("repository team not added")
 	}
 	alice.keys("I")
-	t.Logf("import :\n%s", alice.m.View())
+	t.Logf("import:\n%s", alice.m.View())
 	alice.chooseImport("fairfair-live", "team")
 	alice.chooseImport("my-pilot", "local")
 	alice.keys("enter", "y")
 	if alice.m.screen != scrMain {
-		t.Fatalf("l'import doit revenir à l'écran principal (toast : %s)", alice.m.toast)
+		t.Fatalf("the import should go back to the main screen (toast: %s)", alice.m.toast)
 	}
 	mainCfg := alice.file(alice.m.st.Paths.SSHConfig)
 	if !strings.HasPrefix(mainCfg, "# >>> ssh-config-editor") || strings.Contains(mainCfg, "fairfair-live-worker") ||
 		!strings.Contains(mainCfg, "Host minecraft-server") || !strings.Contains(mainCfg, "Host *") {
-		t.Fatalf("~/.ssh/config d'Alice après import :\n%s", mainCfg)
+		t.Fatalf("Alice's ~/.ssh/config after import:\n%s", mainCfg)
 	}
 	h := alice.host("fairfair-live-worker-3")
 	alice.m.selectHost(h.Path, h.Name)
 	alice.run(alice.m.loadEffective())
 	view := alice.m.View()
-	t.Logf("écran principal d'Alice :\n%s", view)
+	t.Logf("Alice's main screen:\n%s", view)
 	if !strings.Contains(view, "10.100.0.3") || !strings.Contains(view, "#  HostName 10.200.0.3") {
-		t.Error("le détail doit montrer la définition et la config effective")
+		t.Error("the detail pane should show the definition and the effective config")
 	}
 
 	// Bob adds the same repository: he receives Alice's Hosts.
 	bob := newDriver(t, filepath.Join(root, "bob"), "")
 	bob.addRepo(remote)
 	if len(bob.m.st.HostsOf(bob.m.st.Source("team"))) != 3 {
-		t.Fatalf("Bob doit recevoir 3 Host, il en a %d", len(bob.m.st.HostsOf(bob.m.st.Source("team"))))
+		t.Fatalf("Bob should receive 3 Hosts, he has %d", len(bob.m.st.HostsOf(bob.m.st.Source("team"))))
 	}
 
 	// Neighbouring Hosts: automatic merge.
 	alice.setHostName("fairfair-live-worker-1", "10.9.9.1")
+	out, err := exec.Command("git", "-C", alice.m.st.Paths.RepoDir("team"), "log", "-1", "--format=%s").Output()
+	if err != nil || !strings.HasPrefix(string(out), "ssh-config-editor: update fairfair-live-worker-1 (") {
+		t.Errorf("commit message: %q (%v)", out, err)
+	}
 	bob.setHostName("fairfair-live-worker-2", "10.8.8.2")
 	if bob.m.screen != scrMain || len(bob.m.repo("team").conflicts) != 0 {
-		t.Fatal("deux Host voisins ne doivent pas produire de conflit")
+		t.Fatal("two neighbouring Hosts must not produce a conflict")
 	}
 	alice.keys("r")
 	conf := filepath.Join(alice.m.st.Paths.RepoDir("team"), "fairfair-live.conf")
 	if got := alice.file(conf); !strings.Contains(got, "10.9.9.1") || !strings.Contains(got, "10.8.8.2") {
-		t.Fatalf("Alice doit avoir les deux modifications :\n%s", got)
+		t.Fatalf("Alice should have both changes:\n%s", got)
 	}
 
 	// Same Host on both sides: conflict screen for Bob.
 	alice.setHostName("fairfair-live-worker-3", "10.7.7.1")
 	bob.setHostName("fairfair-live-worker-3", "10.7.7.2")
 	if bob.m.screen != scrConflict {
-		t.Fatalf("Bob doit arriver sur l'écran de conflit (écran %d, toast %q)", bob.m.screen, bob.m.toast)
+		t.Fatalf("Bob should land on the conflict screen (screen %d, toast %q)", bob.m.screen, bob.m.toast)
 	}
 	view = bob.m.View()
-	t.Logf("écran de conflit de Bob :\n%s", view)
+	t.Logf("Bob's conflict screen:\n%s", view)
 	if !strings.Contains(view, "fairfair-live-worker-3") || !strings.Contains(view, "10.7.7.1") || !strings.Contains(view, "10.7.7.2") {
-		t.Error("l'écran de conflit doit montrer les deux versions")
+		t.Error("the conflict screen should show both versions")
 	}
 	bob.keys("t", "enter")
 	if bob.m.screen != scrMain || len(bob.m.repo("team").conflicts) != 0 || bob.m.repo("team").err != "" {
-		t.Fatalf("résolution ratée : %+v", bob.m.repo("team"))
+		t.Fatalf("resolution failed: %+v", bob.m.repo("team"))
 	}
 	bobConf := filepath.Join(bob.m.st.Paths.RepoDir("team"), "fairfair-live.conf")
 	if got := bob.file(bobConf); !strings.Contains(got, "10.7.7.1") || strings.Contains(got, "10.7.7.2") {
-		t.Fatalf("Bob doit garder la version d'Alice :\n%s", got)
+		t.Fatalf("Bob should keep Alice's version:\n%s", got)
 	}
 	if st := bob.m.repo("team").status; st.Ahead != 0 || st.Merging {
-		t.Errorf("Bob doit avoir tout poussé : %+v", st)
+		t.Errorf("Bob should have pushed everything: %+v", st)
 	}
 	alice.keys("r")
 	if got, want := alice.file(conf), bob.file(bobConf); got != want {
-		t.Errorf("Alice et Bob divergent :\n--- alice\n%s\n--- bob\n%s", got, want)
+		t.Errorf("Alice and Bob diverge:\n--- alice\n%s\n--- bob\n%s", got, want)
 	}
 
 	// The form, for review.
 	alice.m.selectHost(h.Path, h.Name)
 	alice.keys("e")
-	t.Logf("formulaire :\n%s", alice.m.View())
+	t.Logf("form:\n%s", alice.m.View())
 	alice.keys("esc")
 }

@@ -15,16 +15,16 @@ import (
 
 var version = "dev"
 
-const usage = `ssh-config-editor : édite ~/.ssh/config et le partage via des dépôts git.
+const usage = `ssh-config-editor: edits ~/.ssh/config and shares it through git repositories.
 
-Usage :
-  ssh-config-editor                     interface interactive
-  ssh-config-editor import              range les Host de ~/.ssh/config dans les dépôts
-  ssh-config-editor sync                synchronise tous les dépôts (pour un timer)
-  ssh-config-editor ls                  liste les Host et leur source
-  ssh-config-editor repo ls             liste les dépôts
-  ssh-config-editor repo add NOM URL [BRANCHE]
-  ssh-config-editor repo rm NOM [--force]
+Usage:
+  ssh-config-editor                     interactive UI
+  ssh-config-editor import              moves the Hosts of ~/.ssh/config into the repositories
+  ssh-config-editor sync                syncs every repository (for a timer)
+  ssh-config-editor ls                  lists the Hosts and their source
+  ssh-config-editor repo ls             lists the repositories
+  ssh-config-editor repo add NAME URL [BRANCH]
+  ssh-config-editor repo rm NAME [--force]
   ssh-config-editor version
 `
 
@@ -77,7 +77,7 @@ func run(args []string) error {
 		return cmdRepo(st, args[1:])
 	}
 	fmt.Fprint(os.Stderr, usage)
-	return fmt.Errorf("commande inconnue : %s", cmd)
+	return fmt.Errorf("unknown command: %s", cmd)
 }
 
 func cmdSync(st *store.Store) error {
@@ -86,29 +86,29 @@ func cmdSync(st *store.Store) error {
 		res, err := src.Git().Sync("")
 		switch {
 		case err != nil:
-			fmt.Printf("✗ %s : %v\n", src.Name, err)
+			fmt.Printf("✗ %s: %v\n", src.Name, err)
 		case len(res.Conflicts) > 0:
 			conflicts++
-			fmt.Printf("✗ %s : conflit, lancez ssh-config-editor pour le résoudre\n", src.Name)
+			fmt.Printf("✗ %s: conflict, run ssh-config-editor to resolve it\n", src.Name)
 		case res.Offline:
-			fmt.Printf("! %s : hors ligne, commits gardés en local (%s)\n", src.Name, strings.TrimSpace(res.Warning))
+			fmt.Printf("! %s: offline, commits kept locally (%s)\n", src.Name, strings.TrimSpace(res.Warning))
 		default:
 			fmt.Printf("✓ %s\n", src.Name)
 		}
 	}
 	if conflicts > 0 {
-		return errors.New("conflit(s) en attente")
+		return errors.New("pending conflict(s)")
 	}
 	return nil
 }
 
 func cmdLs(st *store.Store) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "HOST\tHOSTNAME\tUSER\tSOURCE\tFICHIER")
+	fmt.Fprintln(w, "HOST\tHOSTNAME\tUSER\tSOURCE\tFILE")
 	for _, h := range st.Hosts {
 		source := h.Source.Label()
 		if h.ShadowedBy != nil {
-			source += " (masqué par " + h.ShadowedBy.Label() + ")"
+			source += " (shadowed by " + h.ShadowedBy.Label() + ")"
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", h.Name, h.Block.Get("HostName"), h.Block.Get("User"), source, h.File())
 	}
@@ -128,7 +128,7 @@ func cmdRepo(st *store.Store, args []string) error {
 		return nil
 	case "add":
 		if len(args) < 3 {
-			return errors.New("usage : repo add NOM URL [BRANCHE]")
+			return errors.New("usage: repo add NAME URL [BRANCH]")
 		}
 		r := store.Repo{Name: args[1], URL: args[2]}
 		if len(args) > 3 {
@@ -137,21 +137,21 @@ func cmdRepo(st *store.Store, args []string) error {
 		if err := st.AddRepo(r); err != nil {
 			return err
 		}
-		fmt.Printf("✓ %s cloné et ajouté à %s\n", r.Name, st.Paths.SSHConfig)
+		fmt.Printf("✓ %s cloned and added to %s\n", r.Name, st.Paths.SSHConfig)
 		return nil
 	case "rm":
 		if len(args) < 2 {
-			return errors.New("usage : repo rm NOM [--force]")
+			return errors.New("usage: repo rm NAME [--force]")
 		}
 		force := len(args) > 2 && args[2] == "--force"
 		if err := st.RemoveRepo(args[1], force); err != nil {
 			if errors.Is(err, store.ErrUnpushed) {
-				return fmt.Errorf("%w (relancez avec --force pour les perdre)", err)
+				return fmt.Errorf("%w (rerun with --force to discard them)", err)
 			}
 			return err
 		}
-		fmt.Printf("✓ %s retiré\n", args[1])
+		fmt.Printf("✓ %s removed\n", args[1])
 		return nil
 	}
-	return fmt.Errorf("sous-commande inconnue : repo %s", sub)
+	return fmt.Errorf("unknown subcommand: repo %s", sub)
 }

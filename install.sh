@@ -41,16 +41,16 @@ as_root() {
     elif have sudo; then
         sudo "$@"
     else
-        die "$BIN_DIR n'est pas accessible en écriture et sudo est absent. Relancez avec SSH_CONFIG_EDITOR_BIN_DIR=\$HOME/.local/bin"
+        die "$BIN_DIR is not writable and sudo is missing. Rerun with SSH_CONFIG_EDITOR_BIN_DIR=\$HOME/.local/bin"
     fi
 }
 
 uninstall() {
     target="$BIN_DIR/$NAME"
-    [ -e "$target" ] || die "$target n'existe pas"
+    [ -e "$target" ] || die "$target does not exist"
     as_root rm -f "$target"
-    ok "$target supprimé"
-    info "Vos données sont conservées : ~/.config/$NAME, ~/.local/share/$NAME et le bloc Include de ~/.ssh/config."
+    ok "$target removed"
+    info "Your data is kept: ~/.config/$NAME, ~/.local/share/$NAME and the Include block in ~/.ssh/config."
     exit 0
 }
 
@@ -58,12 +58,12 @@ detect_platform() {
     case "$(uname -s)" in
         Linux)  os=linux ;;
         Darwin) os=darwin ;;
-        *) die "système non pris en charge : $(uname -s) (Linux et macOS uniquement)" ;;
+        *) die "unsupported system: $(uname -s) (Linux and macOS only)" ;;
     esac
     case "$(uname -m)" in
         x86_64 | amd64)  arch=amd64 ;;
         aarch64 | arm64) arch=arm64 ;;
-        *) die "architecture non prise en charge : $(uname -m)" ;;
+        *) die "unsupported architecture: $(uname -m)" ;;
     esac
     ASSET="$NAME-$os-$arch"
 }
@@ -75,7 +75,7 @@ download() {
     elif have wget; then
         wget -q -O "$2" "$1"
     else
-        die "curl ou wget est nécessaire"
+        die "curl or wget is required"
     fi
 }
 
@@ -85,7 +85,7 @@ sha256() {
     elif have shasum; then
         shasum -a 256 "$1" | cut -d' ' -f1
     else
-        die "sha256sum ou shasum est nécessaire pour vérifier le binaire"
+        die "sha256sum or shasum is required to verify the binary"
     fi
 }
 
@@ -99,7 +99,7 @@ fetch() {
         [ "$VERSION" != "latest" ] && tag="$VERSION"
         # shellcheck disable=SC2086
         gh release download $tag --repo "$REPO" --dir "$TMP" --pattern "$ASSET" --pattern checksums.txt \
-            || die "téléchargement impossible depuis $REPO (release $VERSION)"
+            || die "cannot download from $REPO (release $VERSION)"
     else
         if [ "$VERSION" = "latest" ]; then
             url="https://github.com/$REPO/releases/latest/download"
@@ -107,24 +107,24 @@ fetch() {
             url="https://github.com/$REPO/releases/download/$VERSION"
         fi
         download "$url/$ASSET" "$TMP/$ASSET" \
-            || die "téléchargement impossible : $url/$ASSET
-  Si le dépôt est privé, installez gh et lancez « gh auth login » avant de relancer ce script."
-        download "$url/checksums.txt" "$TMP/checksums.txt" || die "checksums.txt introuvable dans la release"
+            || die "cannot download: $url/$ASSET
+  If the repository is private, install gh and run \"gh auth login\" before running this script again."
+        download "$url/checksums.txt" "$TMP/checksums.txt" || die "checksums.txt not found in the release"
     fi
 }
 
 verify() {
     expected="$(grep " $ASSET\$" "$TMP/checksums.txt" | cut -d' ' -f1 || true)"
-    [ -n "$expected" ] || die "$ASSET absent de checksums.txt"
+    [ -n "$expected" ] || die "$ASSET missing from checksums.txt"
     actual="$(sha256 "$TMP/$ASSET")"
-    [ "$expected" = "$actual" ] || die "somme de contrôle invalide pour $ASSET (attendu $expected, obtenu $actual)"
+    [ "$expected" = "$actual" ] || die "invalid checksum for $ASSET (expected $expected, got $actual)"
 }
 
 main() {
     [ "${1:-}" = "--uninstall" ] && uninstall
 
     detect_platform
-    info "Installation de $BOLD$NAME$RESET ($VERSION, $os/$arch) dans $BIN_DIR"
+    info "Installing $BOLD$NAME$RESET ($VERSION, $os/$arch) into $BIN_DIR"
 
     TMP="$(mktemp -d)"
     trap 'rm -rf "$TMP"' EXIT INT TERM
@@ -132,20 +132,20 @@ main() {
     fetch
     verify
     chmod 0755 "$TMP/$ASSET"
-    "$TMP/$ASSET" version >/dev/null 2>&1 || die "le binaire téléchargé ne s'exécute pas sur ce système"
+    "$TMP/$ASSET" version >/dev/null 2>&1 || die "the downloaded binary does not run on this system"
 
     as_root mkdir -p "$BIN_DIR"
     as_root install -m 0755 "$TMP/$ASSET" "$BIN_DIR/$NAME"
-    ok "$NAME $("$BIN_DIR/$NAME" version) installé dans $BIN_DIR/$NAME"
+    ok "$NAME $("$BIN_DIR/$NAME" version) installed in $BIN_DIR/$NAME"
 
     case ":$PATH:" in
         *":$BIN_DIR:"*) ;;
-        *) warn "$BIN_DIR n'est pas dans votre PATH : ajoutez  export PATH=\"$BIN_DIR:\$PATH\"  à votre ~/.bashrc ou ~/.zshrc" ;;
+        *) warn "$BIN_DIR is not in your PATH: add  export PATH=\"$BIN_DIR:\$PATH\"  to your ~/.bashrc or ~/.zshrc" ;;
     esac
-    have git || warn "git est introuvable : il est nécessaire pour synchroniser les dépôts"
-    have ssh || warn "ssh est introuvable"
+    have git || warn "git not found: it is required to sync the repositories"
+    have ssh || warn "ssh not found"
 
-    printf '\n  Lancez %s%s%s, puis %sR%s pour ajouter un dépôt et %sI%s pour importer votre ~/.ssh/config.\n\n' \
+    printf '\n  Run %s%s%s, then %sR%s to add a repository and %sI%s to import your ~/.ssh/config.\n\n' \
         "$BOLD" "$NAME" "$RESET" "$BOLD" "$RESET" "$BOLD" "$RESET"
 }
 

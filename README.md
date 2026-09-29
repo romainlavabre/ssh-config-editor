@@ -35,7 +35,7 @@ ssh-config-editor            # interactive UI
 `~/.ssh/config` starts with a block managed by the tool:
 
 ```
-# >>> ssh-config-editor (généré, ne pas éditer) >>>
+# >>> ssh-config-editor (generated, do not edit) >>>
 Include ~/.config/ssh-config-editor/local.conf
 Include ~/.local/share/ssh-config-editor/repos/team/*.conf
 Include ~/.local/share/ssh-config-editor/repos/personal/*.conf
@@ -45,7 +45,7 @@ Include ~/.local/share/ssh-config-editor/repos/personal/*.conf
 - **ssh itself does the merging**, through `Include`. If the tool goes away, your config keeps working.
 - **In ssh, the first value wins.** `local.conf` comes first: that is where personal overrides go (your `User`, your `IdentityFile`), never shared. The repositories follow, in the priority order set with `K`/`J` on the repositories screen.
 - Everything outside the block stays yours; the tool only rewrites it when you edit a Host that lives there.
-- A Host defined in two places is flagged `⚠ masqué` on the definition that does not apply.
+- A Host defined in two places is flagged `⚠ shadowed` on the definition that does not apply.
 - Before every write, `ssh -G` re-reads the config: an unknown option is rejected before it gets pushed.
 
 ### Synchronization
@@ -125,6 +125,16 @@ make build   # dist/ssh-config-editor
 make dist    # linux and macOS, amd64/arm64
 make release # dist + checksums.txt
 ```
+
+Trying the current checkout on your real config, without touching it:
+
+```sh
+./run.sh              # or: make run
+./run.sh ls           # any command
+./run.sh --keep       # keep the sandbox in .sandbox/ across runs (./run.sh --reset to wipe it)
+```
+
+It builds the binary and runs it in a throwaway container where `HOME` has the same path as yours, seeded with a copy of `~/.ssh` (keys, `known_hosts`, config) and `~/.gitconfig`. Your real `~/.ssh` is mounted read-only. The container shares the host network and your ssh-agent, so connecting to a Host works (VPN included). Git pushes are real, though: add test repositories, not the team's.
 
 Publishing a version (this is what `install.sh` downloads):
 
