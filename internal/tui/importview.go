@@ -152,11 +152,11 @@ func (m *Model) viewImport() string {
 		if v.expanded[i] {
 			arrow = "▾"
 		}
-		dest := v.destLabel(v.choice[i])
-		destS := sMuted.Render("‹ " + dest + " ›")
-		if v.dests[v.choice[i]] != nil {
-			destS = sOK.Render("‹ " + dest + " ›")
+		options := make([]string, len(v.dests))
+		for j := range v.dests {
+			options[j] = v.destLabel(j)
 		}
+		destS := inlineChoices(options, v.choice[i], i == v.cursor)
 		name := g.Key + " " + sMuted.Render(fmt.Sprintf("(%d)", len(g.Hosts)))
 		name += strings.Repeat(" ", max(1, 30-lipgloss.Width(name)))
 		line := fmt.Sprintf("%s %s  %s", sAccent.Render(arrow), name, destS)

@@ -25,6 +25,7 @@ Host fairfair-live-worker-1
 Host fairfair-live-worker-2
   IdentityFile ~/.ssh/fairfair-live
   User ubuntu
+  LogLevel ERROR
   HostName 10.100.0.2
 
 Host fairfair-live-worker-3
@@ -110,6 +111,9 @@ func key(s string) tea.KeyMsg {
 	}
 	if k, ok := named[s]; ok {
 		return tea.KeyMsg{Type: k}
+	}
+	if r, ok := strings.CutPrefix(s, "alt+"); ok {
+		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r), Alt: true}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
@@ -211,6 +215,9 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 	alice.run(alice.m.loadEffective())
 	view := alice.m.View()
 	t.Logf("Alice's main screen:\n%s", view)
+	if !strings.Contains(view, "x delete") || !strings.Contains(view, "c duplicate") {
+		t.Error("the footer should list the Host actions, delete included")
+	}
 	if !strings.Contains(view, "10.100.0.3") || !strings.Contains(view, "#  HostName 10.200.0.3") {
 		t.Error("the detail pane should show the definition and the effective config")
 	}
@@ -236,6 +243,11 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 	conf := filepath.Join(alice.m.st.Paths.RepoDir("team"), "fairfair-live.conf")
 	if got := alice.file(conf); !strings.Contains(got, "10.9.9.1") || !strings.Contains(got, "10.8.8.2") {
 		t.Fatalf("Alice should have both changes:\n%s", got)
+	}
+	// Editing through the form keeps what has no field (LogLevel) and the
+	// inline choices (IdentitiesOnly).
+	if got := alice.file(conf); !strings.Contains(got, "  LogLevel ERROR\n") || !strings.Contains(got, "  IdentitiesOnly yes\n") {
+		t.Errorf("directives lost by the form:\n%s", got)
 	}
 
 	// Same Host on both sides: conflict screen for Bob.
@@ -269,5 +281,157 @@ func TestTwoColleaguesEndToEnd(t *testing.T) {
 	alice.m.selectHost(h.Path, h.Name)
 	alice.keys("e")
 	t.Logf("form:\n%s", alice.m.View())
+	alice.keys("esc")
+
+	// New Host: Destination and File are lists with every option visible.
+	alice.keys("n", "fairfair-live-worker-9")
+	f := alice.m.form
+	focus := func(id string) {
+		for n := 0; f.cur().id != id && n < len(f.fields); n++ {
+			alice.keys("tab")
+		}
+		if f.cur().id != id {
+			t.Fatalf("cannot reach field %s", id)
+		}
+	}
+	dest, file, identity := &f.field(idDest).list, &f.field(idFile).list, &f.field("IdentityFile").list
+	focus(idDest)
+	team := 0
+	for i, s := range f.dests {
+		if s.Name == "team" {
+			team = i
+		}
+	}
+	for dest.idx > team {
+		alice.keys("up")
+	}
+	for dest.idx < team {
+		alice.keys("down")
+	}
+	if file.value() != "fairfair-live.conf" || file.customSelected() {
+		t.Errorf("the File list should preselect fairfair-live.conf, got %q", file.value())
+	}
+	view = alice.m.View()
+	t.Logf("new Host form (Storage):\n%s", view)
+	for _, want := range []string{"● team", "○ local", "○ ~/.ssh/config", "● fairfair-live.conf", "○ new file…"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("every list option should be visible, %q is missing", want)
+		}
+	}
+
+	// h explains the field under focus; esc closes the help, not the form.
+	alice.keys("h")
+	if view := alice.m.View(); !strings.Contains(view, "Where the Host is saved") {
+		t.Errorf("h should open the Destination help:\n%s", view)
+	}
+	alice.keys("esc")
+	if alice.m.form == nil || f.helpOpen {
+		t.Fatal("esc should close the help and keep the form open")
+	}
+
+	// An unknown prefix proposes a new file named after it.
+	focus(idAlias)
+	alice.keys("ctrl+e", "ctrl+u", "db-prod-1")
+	if file.value() != "db-prod.conf" || !file.customSelected() {
+		t.Errorf("expected new file db-prod.conf, got %q (new: %v)", file.value(), file.customSelected())
+	}
+	alice.keys("ctrl+e", "ctrl+u", "fairfair-live-worker-9")
+
+	// In the File list: down reaches "new file", typing names it, up goes back,
+	// and leaving the top of the list moves to Destination.
+	focus(idFile)
+	alice.keys("down", "extra")
+	if file.value() != "extra" || !file.customSelected() {
+		t.Errorf("expected the typed new file, got %q", file.value())
+	}
+	alice.keys("up")
+	if file.value() != "fairfair-live.conf" {
+		t.Errorf("up should select fairfair-live.conf again, got %q", file.value())
+	}
+	alice.keys("up")
+	if f.cur().id != idDest {
+		t.Errorf("leaving the top of the File list should focus Destination, focus is %s", f.cur().id)
+	}
+
+	// Text field: h is typed, alt+h explains.
+	focus("HostName")
+	alice.keys("h")
+	if f.helpOpen || f.field("HostName").value() != "h" {
+		t.Errorf("h should be typed in a text field, got %q", f.field("HostName").value())
+	}
+	alice.keys("alt+h")
+	if view := alice.m.View(); !strings.Contains(view, "The real address to connect to") {
+		t.Errorf("alt+h should open the HostName help:\n%s", view)
+	}
+	alice.keys("x", "ctrl+e", "ctrl+u", "10.0.0.9")
+
+	// Advanced options are collapsed on a new Host; enter opens them.
+	if view := alice.m.View(); strings.Contains(view, "ForwardAgent") || !strings.Contains(view, "▸ Advanced options") {
+		t.Errorf("advanced options should start collapsed:\n%s", view)
+	}
+	focus(idAdvanced)
+	alice.keys("enter")
+	if !f.advanced {
+		t.Fatal("enter on Advanced options should expand them")
+	}
+
+	// Inline choice: ←/→ picks a value, every value stays visible.
+	focus("ForwardAgent")
+	alice.keys("right")
+	if f.field("ForwardAgent").value() != "yes" {
+		t.Errorf("right should pick yes, got %q", f.field("ForwardAgent").value())
+	}
+	if view := alice.m.View(); !strings.Contains(view, "○ unset   ● yes   ○ no") {
+		t.Errorf("the ForwardAgent choices should all be visible:\n%s", view)
+	}
+
+	// IdentityFile list: "none" by default, typing switches to a custom path.
+	focus("IdentityFile")
+	if identity.value() != "" || identity.idx != 0 {
+		t.Errorf("a new Host should have no IdentityFile, got %q", identity.value())
+	}
+	alice.keys("~/.ssh/team-key")
+	if !identity.customSelected() || identity.value() != "~/.ssh/team-key" {
+		t.Errorf("typing should fill the custom path, got %q", identity.value())
+	}
+	view = alice.m.View()
+	if !strings.Contains(view, "○ none") || !strings.Contains(view, "custom path: ~/.ssh/team-key") {
+		t.Errorf("the IdentityFile list should show every option:\n%s", view)
+	}
+	alice.keys("ctrl+s")
+	saved := alice.host("fairfair-live-worker-9")
+	want := "Host fairfair-live-worker-9\n  HostName 10.0.0.9\n  IdentityFile ~/.ssh/team-key\n  ForwardAgent yes"
+	if saved.File() != "fairfair-live.conf" || saved.Block.Text() != want {
+		t.Errorf("saved in %s:\n%s\nwant:\n%s", saved.File(), saved.Block.Text(), want)
+	}
+
+	// Editing: a key that is not in ~/.ssh shows up as a custom path; none
+	// removes the directive.
+	alice.m.selectHost(saved.Path, saved.Name)
+	alice.keys("e")
+	f = alice.m.form
+	if f.advanced || !strings.Contains(alice.m.View(), "1 set") {
+		t.Errorf("editing should also start collapsed, showing how many advanced options are set:\n%s", alice.m.View())
+	}
+	identity = &f.field("IdentityFile").list
+	if !identity.customSelected() || identity.value() != "~/.ssh/team-key" {
+		t.Errorf("expected custom path ~/.ssh/team-key, got %q", identity.value())
+	}
+	focus("IdentityFile")
+	for identity.idx > 0 {
+		alice.keys("up")
+	}
+	alice.keys("ctrl+s")
+	if got := alice.host("fairfair-live-worker-9").Block.Get("IdentityFile"); got != "" {
+		t.Errorf("none should remove IdentityFile, got %q", got)
+	}
+
+	// Directives without a field are listed and kept.
+	h2 := alice.host("fairfair-live-worker-2")
+	alice.m.selectHost(h2.Path, h2.Name)
+	alice.keys("e")
+	if len(alice.m.form.kept) != 1 || alice.m.form.kept[0].Key != "LogLevel" {
+		t.Errorf("LogLevel should be kept as is, got %+v", alice.m.form.kept)
+	}
 	alice.keys("esc")
 }

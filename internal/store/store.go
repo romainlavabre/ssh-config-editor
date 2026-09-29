@@ -415,7 +415,7 @@ func (s *Store) CheckRepo(r Repo) (Repo, error) {
 	r.URL = strings.TrimSpace(r.URL)
 	r.Branch = strings.TrimSpace(r.Branch)
 	if r.Branch == "" {
-		r.Branch = "main"
+		r.Branch = DefaultBranch
 	}
 	if err := ValidateRepoName(r.Name); err != nil {
 		return r, err

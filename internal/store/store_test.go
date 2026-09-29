@@ -81,6 +81,9 @@ func TestAddRepoWritesManagedBlockOnTop(t *testing.T) {
 	if !s.ManagedUpToDate() {
 		t.Error("the block should be up to date")
 	}
+	if got := s.Config.Repos[0].Branch; got != "master" {
+		t.Errorf("default branch = %q, want master", got)
+	}
 	if len(s.Hosts) != 4 {
 		t.Errorf("expected 4 Hosts read, got %d", len(s.Hosts))
 	}

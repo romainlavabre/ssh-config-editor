@@ -19,11 +19,11 @@ func team(t *testing.T) (Repo, Repo) {
 	if _, err := run(root, "init", "--quiet", "--bare", remote); err != nil {
 		t.Fatal(err)
 	}
-	a, err := Clone(remote, filepath.Join(root, "alice"), "main")
+	a, err := Clone(remote, filepath.Join(root, "alice"), "master")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := Clone(remote, filepath.Join(root, "bob"), "main")
+	b, err := Clone(remote, filepath.Join(root, "bob"), "master")
 	if err != nil {
 		t.Fatal(err)
 	}

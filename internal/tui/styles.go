@@ -89,6 +89,49 @@ func pane(title string, lines []string, w, h int, focus bool) string {
 	return strings.Join(rows, "\n")
 }
 
+// radioList renders every option on its own line, the selected one marked with
+// ● and, when the list has focus, pointed at with ›. hints (optional) are
+// aligned after the options.
+func radioList(options, hints []string, selected int, focus bool) []string {
+	width := 0
+	for _, o := range options {
+		width = max(width, lipgloss.Width(o))
+	}
+	out := make([]string, len(options))
+	for i, o := range options {
+		mark, text := sMuted.Render("○ "), o
+		if i == selected {
+			mark, text = sAccent.Render("● "), sBold.Render(o)
+		}
+		lead := "  "
+		if focus && i == selected {
+			lead = sAccent.Render("› ")
+		}
+		line := lead + mark + text
+		if i < len(hints) && hints[i] != "" {
+			line += strings.Repeat(" ", width-lipgloss.Width(o)+2) + sMuted.Render(hints[i])
+		}
+		out[i] = line
+	}
+	return out
+}
+
+// inlineChoices renders every option on one line, the selected one marked with ●.
+func inlineChoices(options []string, selected int, focus bool) string {
+	parts := make([]string, len(options))
+	for i, o := range options {
+		switch {
+		case i == selected && focus:
+			parts[i] = sAccent.Render("● ") + sBold.Render(o)
+		case i == selected:
+			parts[i] = "● " + o
+		default:
+			parts[i] = sMuted.Render("○ " + o)
+		}
+	}
+	return strings.Join(parts, "   ")
+}
+
 func plural(n int, one, many string) string {
 	if n == 1 {
 		return one

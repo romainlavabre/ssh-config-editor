@@ -39,14 +39,14 @@ func (m *Model) openRepos() {
 }
 
 func (v *reposView) startAdding() tea.Cmd {
-	ph := []string{"git@github.com:team/ssh-config.git", "team", "main"}
+	ph := []string{"git@github.com:team/ssh-config.git", "team", store.DefaultBranch}
 	for i := range v.inputs {
 		ti := textinput.New()
 		ti.Prompt = ""
 		ti.Placeholder = ph[i]
 		v.inputs[i] = ti
 	}
-	v.inputs[rBranch].SetValue("main")
+	v.inputs[rBranch].SetValue(store.DefaultBranch)
 	v.adding, v.focus, v.nameTouched, v.err = true, rURL, false, ""
 	return v.inputs[rURL].Focus()
 }
@@ -71,17 +71,38 @@ func (v *reposView) setFocus(i int) tea.Cmd {
 	return v.inputs[v.focus].Focus()
 }
 
-// nameFromURL derives a repository name: git@github.com:team/ssh-config.git → ssh-config.
+// nameFromURL derives a repository name from the organization in its URL:
+// git@github.com:fairfair/ssh-config.git → fairfair,
+// https://gitlab.com/marea/infra/ssh.git → marea.
+// A local path has no organization: its directory name is used (/srv/team.git → team).
 func nameFromURL(url string) string {
 	url = strings.TrimSuffix(strings.TrimSpace(url), "/")
 	url = strings.TrimSuffix(url, ".git")
-	if i := strings.LastIndexAny(url, "/:"); i >= 0 {
-		url = url[i+1:]
-	}
-	if url = path.Clean(url); url == "." {
+	var repoPath string
+	switch {
+	case strings.Contains(url, "://"):
+		// scheme://[user@]host[:port]/org/repo; file:// is a local path.
+		rest := url[strings.Index(url, "://")+3:]
+		if strings.HasPrefix(url, "file://") {
+			return path.Base(rest)
+		}
+		if i := strings.Index(rest, "/"); i >= 0 {
+			repoPath = rest[i+1:]
+		}
+	case !strings.HasPrefix(url, "/") && !strings.HasPrefix(url, ".") && strings.Contains(url, ":"):
+		// scp-like: [user@]host:org/repo
+		repoPath = url[strings.Index(url, ":")+1:]
+	default:
+		if name := path.Base(url); name != "." && name != "/" {
+			return name
+		}
 		return ""
 	}
-	return url
+	parts := strings.Split(strings.Trim(repoPath, "/"), "/")
+	if len(parts) >= 2 {
+		return parts[0]
+	}
+	return parts[0] // host:repo without organization
 }
 
 func (m *Model) updateRepos(k tea.KeyMsg) tea.Cmd {

@@ -52,6 +52,9 @@ func (p Paths) RepoDir(name string) string { return filepath.Join(p.DataDir, "re
 // SSHDir is the keys directory.
 func (p Paths) SSHDir() string { return filepath.Dir(p.SSHConfig) }
 
+// DefaultBranch is used when a repository is added without a branch.
+const DefaultBranch = "master"
+
 // Repo is a shared configuration repository.
 type Repo struct {
 	Name   string `toml:"name"`
@@ -85,7 +88,7 @@ func LoadConfig(p Paths) (*Config, error) {
 	}
 	for i := range c.Repos {
 		if c.Repos[i].Branch == "" {
-			c.Repos[i].Branch = "main"
+			c.Repos[i].Branch = DefaultBranch
 		}
 	}
 	return c, nil

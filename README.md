@@ -70,7 +70,12 @@ If the network is down, the commit stays local (`↑1` in the status bar) and go
 | `C` | resume a pending conflict |
 | `?` | help |
 
-In the form: `tab`/`↑↓` to switch fields, `→` to accept the suggestion (keys from `~/.ssh`, known Hosts for ProxyJump), `←/→` on Destination to pick the repository.
+The form shows the common ssh directives as fields, grouped by section (Connection, Authentication, Forwarding, Session, Multiplexing, Storage). An empty field writes nothing; directives without a field are listed under "Kept as is" and written back untouched.
+
+- `tab`/`↑↓` switch fields; `→` accepts the ProxyJump suggestion.
+- yes/no-like options are inline choices (`● unset ○ yes ○ no`): `←/→` picks one.
+- IdentityFile, Destination and File are lists where every option stays visible: `↑↓` inside the list, leaving it at the top or bottom moves to the neighbouring field. IdentityFile lists the keys in `~/.ssh`, plus "none" and "custom path"; File lists the repository's `.conf` files plus "new file". Typing on these lists switches to the typed entry.
+- `h` (`alt+h` in a text field, where `h` is a letter) explains the field under the cursor.
 
 ## Command line
 

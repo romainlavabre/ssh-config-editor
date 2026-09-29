@@ -739,21 +739,26 @@ func (m *Model) titleBar(right string) string {
 	return " " + left + strings.Repeat(" ", gap) + right + " "
 }
 
+// footer shows the notification if there is one, otherwise the keys.
 func (m *Model) footer(help string) string {
 	if m.toast != "" {
-		st := sMuted
-		icon := "•"
-		switch m.toastKind {
-		case toastOK:
-			st, icon = sOK, "✓"
-		case toastWarn:
-			st, icon = sWarn, "!"
-		case toastErr:
-			st, icon = sErr, "✗"
-		}
-		return " " + truncate(st.Render(icon+" "+m.toast), m.w-2)
+		return m.toastLine()
 	}
 	return " " + truncate(help, m.w-2)
+}
+
+func (m *Model) toastLine() string {
+	st := sMuted
+	icon := "•"
+	switch m.toastKind {
+	case toastOK:
+		st, icon = sOK, "✓"
+	case toastWarn:
+		st, icon = sWarn, "!"
+	case toastErr:
+		st, icon = sErr, "✗"
+	}
+	return " " + truncate(st.Render(icon+" "+m.toast), m.w-2)
 }
 
 func (m *Model) viewMain() string {
@@ -784,9 +789,25 @@ func (m *Model) viewMain() string {
 	left := pane("Hosts", lines, leftW, innerH, true)
 	detail := pane(m.detailTitle(), m.detailLines(rightW), rightW, innerH, false)
 	parts = append(parts, lipgloss.JoinHorizontal(lipgloss.Top, left, detail))
-	parts = append(parts, " "+truncate(m.statusBar(), m.w-2))
-	parts = append(parts, m.footer(helpLine("enter", "connect", "e", "edit", "n", "new", "/", "filter", "m", "move", "r", "sync", "R", "repos", "?", "help", "q", "quit")))
+	// Notifications take the status line so the keys always stay visible.
+	if m.toast != "" {
+		parts = append(parts, m.toastLine())
+	} else {
+		parts = append(parts, " "+truncate(m.statusBar(), m.w-2))
+	}
+	parts = append(parts, " "+truncate(m.mainHelp(), m.w-2))
 	return strings.Join(parts, "\n")
+}
+
+// mainHelp lists the keys that apply to the selected row, most useful first:
+// the line is cut on narrow terminals.
+func (m *Model) mainHelp() string {
+	if m.current().host != nil {
+		return helpLine("enter", "connect", "e", "edit", "c", "duplicate", "m", "move", "x", "delete",
+			"n", "new", "/", "filter", "r", "sync", "R", "repos", "?", "help", "q", "quit")
+	}
+	return helpLine("enter", "fold", "n", "new", "r", "sync", "R", "repos", "I", "import",
+		"/", "filter", "?", "help", "q", "quit")
 }
 
 func (m *Model) renderRow(r row, selected bool, w int) string {
@@ -996,7 +1017,7 @@ func (m *Model) viewHelp() string {
 		{"Navigation", []string{"↑/↓ j/k", "move", "←/→ h/l", "collapse / expand a group", "/", "filter (name, IP, user)", "esc", "clear the filter"}},
 		{"Host", []string{"enter", "connect", "n", "new Host", "e", "edit", "c", "duplicate", "m", "move to another source", "x", "delete"}},
 		{"Sync", []string{"r", "sync all repositories", "R", "manage repositories", "I", "import ~/.ssh/config", "C", "resolve a conflict"}},
-		{"Form", []string{"tab / ↑↓", "next / previous field", "→", "accept the suggestion", "←/→", "change destination", "ctrl+s", "save", "esc", "cancel"}},
+		{"Form", []string{"tab / ↑↓", "next / previous field", "→", "accept the suggestion", "←/→ ↑↓", "choose (inline choices, lists)", "h / alt+h", "explain the field", "ctrl+s", "save", "esc", "cancel"}},
 	}
 	var lines []string
 	lines = append(lines, m.titleBar(sMuted.Render("help")), "")
